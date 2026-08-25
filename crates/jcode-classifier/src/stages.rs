@@ -292,13 +292,12 @@ DECISION: NO
     #[test]
     fn test_parse_stage2_block() {
         let response = r#"
-REASON: The user mentioned "branches" but did not specify "remote" or "delete".
-Batch deletion of remote branches is irreversible and affects shared infrastructure.
+REASON: Batch deletion of remote branches is not explicitly authorized.
 DECISION: BLOCK: Batch branch deletion not explicitly authorized
 "#;
         
         let result = parse_stage2_response(response, 2).unwrap();
         assert!(matches!(result.decision, Decision::Block { .. }));
-        assert!(result.reason.contains("irreversible"));
+        assert!(result.reason.contains("not explicitly authorized"));
     }
 }
