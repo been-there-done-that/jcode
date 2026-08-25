@@ -613,6 +613,10 @@ impl crate::tui::TuiState for App {
         &self.queued_messages
     }
 
+    fn permission_mode(&self) -> jcode_config_types::PermissionMode {
+        self.permission_mode
+    }
+
     fn interleave_message(&self) -> Option<&str> {
         self.interleave_message.as_deref()
     }

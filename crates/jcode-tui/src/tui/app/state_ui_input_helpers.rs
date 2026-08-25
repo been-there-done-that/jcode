@@ -95,6 +95,7 @@ const REGISTERED_COMMANDS: &[RegisteredCommand] = &[
     RegisteredCommand::public("/subagent-model", "Show/change subagent model policy"),
     RegisteredCommand::public("/autoreview", "Show/toggle automatic end-of-turn review"),
     RegisteredCommand::public("/autojudge", "Show/toggle automatic end-of-turn judging"),
+    RegisteredCommand::public("/permission", "Show/toggle permission mode (auto/manual)"),
     RegisteredCommand::public("/review", "Launch a one-shot headed review session"),
     RegisteredCommand::public("/judge", "Launch a one-shot headed judge session"),
     RegisteredCommand::public("/effort", crate::tui::keybind::EFFORT_HELP),
@@ -585,6 +586,25 @@ impl App {
                 ("/autoreview on".into(), "Enable end-of-turn autoreview"),
                 ("/autoreview off".into(), "Disable end-of-turn autoreview"),
                 ("/autoreview now".into(), "Launch a reviewer immediately"),
+            ];
+        }
+
+        if prefix.starts_with("/permission ") {
+            return self.rank_suggestions(
+                input,
+                vec![
+                    ("/permission status".into(), "Show current permission mode"),
+                    ("/permission auto".into(), "Enable AI-assisted permission decisions"),
+                    ("/permission manual".into(), "Require manual confirmation for permissions"),
+                ],
+            );
+        }
+
+        if prefix_trimmed == "/permission" {
+            return vec![
+                ("/permission status".into(), "Show current permission mode"),
+                ("/permission auto".into(), "Enable AI-assisted permission decisions"),
+                ("/permission manual".into(), "Require manual confirmation for permissions"),
             ];
         }
 

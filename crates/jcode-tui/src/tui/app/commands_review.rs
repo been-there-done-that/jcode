@@ -996,6 +996,71 @@ pub(super) fn handle_autoreview_command_local(app: &mut App, trimmed: &str) -> b
     }
 }
 
+pub(super) fn handle_permission_command_local(app: &mut App, trimmed: &str) -> bool {
+    if !trimmed.starts_with("/permission") {
+        return false;
+    }
+
+    let rest = trimmed
+        .strip_prefix("/permission")
+        .unwrap_or_default()
+        .trim();
+
+    match rest {
+        "" | "status" => {
+            let mode = app.permission_mode;
+            let mode_str = match mode {
+                jcode_config_types::PermissionMode::Manual => "Manual (requires confirmation for each permission)",
+                jcode_config_types::PermissionMode::Auto => "Auto (AI-assisted permission decisions)",
+            };
+            app.push_display_message(DisplayMessage::system(format!(
+                "Permission Mode: {}",
+                mode_str
+            )));
+            true
+        }
+        "auto" => {
+            app.permission_mode = jcode_config_types::PermissionMode::Auto;
+            app.push_display_message(DisplayMessage::system(
+                "Permission mode set to Auto. AI will assist with permission decisions.".to_string(),
+            ));
+            app.set_status_notice("Permissions: AUTO");
+            true
+        }
+        "manual" => {
+            app.permission_mode = jcode_config_types::PermissionMode::Manual;
+            app.push_display_message(DisplayMessage::system(
+                "Permission mode set to Manual. All permissions require confirmation.".to_string(),
+            ));
+            app.set_status_notice("Permissions: MANUAL");
+            true
+        }
+        "toggle" => {
+            let new_mode = match app.permission_mode {
+                jcode_config_types::PermissionMode::Manual => jcode_config_types::PermissionMode::Auto,
+                jcode_config_types::PermissionMode::Auto => jcode_config_types::PermissionMode::Manual,
+            };
+            app.permission_mode = new_mode;
+            let mode_str = match new_mode {
+                jcode_config_types::PermissionMode::Manual => "Manual",
+                jcode_config_types::PermissionMode::Auto => "Auto",
+            };
+            app.push_display_message(DisplayMessage::system(format!(
+                "Permission mode toggled to: {}",
+                mode_str
+            )));
+            app.set_status_notice(format!("Permissions: {}", mode_str));
+            true
+        }
+        _ => {
+            app.push_display_message(DisplayMessage::error(
+                "Usage: /permission [status|auto|manual|toggle]".to_string(),
+            ));
+            true
+        }
+    }
+}
+
 pub(super) fn handle_judge_command_local(app: &mut App, trimmed: &str) -> bool {
     if !trimmed.starts_with("/judge") {
         return false;

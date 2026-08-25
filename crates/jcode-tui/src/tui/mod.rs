@@ -241,6 +241,7 @@ pub trait TuiState {
     fn cursor_pos(&self) -> usize;
     fn is_processing(&self) -> bool;
     fn queued_messages(&self) -> &[String];
+    fn permission_mode(&self) -> jcode_config_types::PermissionMode;
     fn interleave_message(&self) -> Option<&str>;
     /// Messages sent as soft interrupt but not yet injected (shown in queue preview)
     fn pending_soft_interrupts(&self) -> &[String];

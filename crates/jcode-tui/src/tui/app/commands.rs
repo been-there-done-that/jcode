@@ -16,6 +16,7 @@ pub(super) use super::commands_review::{
     autoreview_status_message, build_autojudge_startup_message, build_autoreview_startup_message,
     build_judge_startup_message, build_review_startup_message, current_feedback_target_session_id,
     handle_autojudge_command_local, handle_autoreview_command_local, handle_judge_command_local,
+    handle_permission_command_local,
     handle_observe_command, handle_review_command_local, launch_forked_session_local,
     launch_prompt_in_new_session_local, maybe_trigger_autojudge_local,
     maybe_trigger_autoreview_local, preferred_one_shot_review_override,
@@ -1665,6 +1666,7 @@ pub(super) fn handle_session_command(app: &mut App, trimmed: &str) -> bool {
         || handle_back_command(app, trimmed)
         || handle_autoreview_command_local(app, trimmed)
         || handle_autojudge_command_local(app, trimmed)
+        || handle_permission_command_local(app, trimmed)
         || handle_review_command_local(app, trimmed)
         || handle_judge_command_local(app, trimmed)
         || handle_selfdev_command(app, trimmed)

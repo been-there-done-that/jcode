@@ -1264,6 +1264,8 @@ pub struct App {
     autoreview_enabled: bool,
     // Automatic end-of-turn judge toggle for this session
     autojudge_enabled: bool,
+    // Permission mode (manual/auto) for this session
+    permission_mode: jcode_config_types::PermissionMode,
     // Last requested `/improve` mode for this session.
     improve_mode: Option<ImproveMode>,
     // Suppress duplicate memory injection messages for near-identical prompts.

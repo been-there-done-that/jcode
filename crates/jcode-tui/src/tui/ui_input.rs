@@ -776,6 +776,16 @@ pub(super) fn draw_status(frame: &mut Frame, app: &dyn TuiState, area: Rect, pen
         String::new()
     };
 
+    // Add permission mode indicator if in Auto mode
+    let auto_mode_indicator = if app.permission_mode()
+        == jcode_config_types::PermissionMode::Auto
+    {
+        " · ⟳ AUTO"
+    } else {
+        ""
+    };
+    let queued_suffix = format!("{}{}", queued_suffix, auto_mode_indicator);
+
     let line = if let Some(build_progress) = crate::build::read_build_progress() {
         let spinner = super::activity_indicator(elapsed, 12.5);
         Line::from(vec![
