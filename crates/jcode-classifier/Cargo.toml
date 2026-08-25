@@ -1,0 +1,27 @@
+[package]
+name = "jcode-classifier"
+version = "0.1.0"
+edition = "2024"
+description = "AI-assisted permission classification for jcode"
+publish = false
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["rt"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Provider integration
+jcode-provider-core = { path = "../jcode-provider-core" }
+jcode-message-types = { path = "../jcode-message-types" }
+
+# Utilities
+anyhow = "1"
+async-trait = "0.1"
+tracing = "0.1"
+futures-util = "0.3"
+
+[dev-dependencies]
+tempfile = "3"

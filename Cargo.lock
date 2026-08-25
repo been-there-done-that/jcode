@@ -3642,6 +3642,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "jcode-classifier"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures-util",
+ "jcode-message-types",
+ "jcode-provider-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "jcode-command-risk"
 version = "0.1.0"
 dependencies = [
