@@ -1063,7 +1063,7 @@ fn status_output_prunes_stale_pending_requests() {
         repo_dir: "/tmp/jcode".to_string(),
         repo_scope: source.repo_scope.clone(),
         worktree_scope: source.worktree_scope.clone(),
-        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin jcode".to_string(),
+        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin rcode".to_string(),
         // Outside the bootstrap grace window: a request with a missing status
         // file is only pruned once it is old enough that the queue handler
         // cannot still be mid-spawn.
@@ -1131,7 +1131,7 @@ fn freshly_queued_request_survives_reconcile_before_task_metadata_exists() {
         repo_dir: "/tmp/jcode".to_string(),
         repo_scope: source.repo_scope.clone(),
         worktree_scope: source.worktree_scope.clone(),
-        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin jcode".to_string(),
+        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin rcode".to_string(),
         requested_at: Utc::now().to_rfc3339(),
         started_at: None,
         completed_at: None,
@@ -1216,7 +1216,7 @@ async fn build_ignores_stale_pending_requests_when_computing_queue_position() {
         repo_dir: repo.path().display().to_string(),
         repo_scope: source.repo_scope.clone(),
         worktree_scope: source.worktree_scope.clone(),
-        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin jcode".to_string(),
+        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin rcode".to_string(),
         // Backdated beyond the 30s bootstrap grace so reconciliation treats the
         // dead-task request as genuinely stale (a fresh timestamp would keep it
         // alive and Queued, which is the bootstrap-race protection, not the
@@ -1317,7 +1317,7 @@ fn reconcile_pending_state_maps_superseded_background_status() {
         repo_dir: "/tmp/jcode".to_string(),
         repo_scope: source.repo_scope.clone(),
         worktree_scope: source.worktree_scope.clone(),
-        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin jcode".to_string(),
+        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin rcode".to_string(),
         requested_at: Utc::now().to_rfc3339(),
         started_at: Some(Utc::now().to_rfc3339()),
         completed_at: None,
@@ -1407,7 +1407,7 @@ fn reconcile_keeps_running_request_not_yet_registered_in_live_task_map() {
         repo_dir: "/tmp/jcode".to_string(),
         repo_scope: source.repo_scope.clone(),
         worktree_scope: source.worktree_scope.clone(),
-        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin jcode".to_string(),
+        command: "scripts/dev_cargo.sh build --profile selfdev -p jcode --bin rcode".to_string(),
         requested_at: Utc::now().to_rfc3339(),
         started_at: None,
         completed_at: None,

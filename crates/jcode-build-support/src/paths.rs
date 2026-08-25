@@ -62,12 +62,12 @@ pub fn find_repo_in_ancestors(start: &Path) -> Option<PathBuf> {
 }
 
 pub fn binary_stem() -> &'static str {
-    "jcode"
+    "rcode"
 }
 
 pub fn binary_name() -> &'static str {
     if cfg!(windows) {
-        "jcode.exe"
+        "rcode.exe"
     } else {
         binary_stem()
     }
@@ -184,8 +184,8 @@ fn selfdev_build_command_for_target_on_platform(
         explicit => explicit,
     };
     let specs = match target {
-        SelfDevBuildTarget::Tui => vec![("jcode", "jcode")],
-        SelfDevBuildTarget::All | SelfDevBuildTarget::Auto => vec![("jcode", "jcode")],
+        SelfDevBuildTarget::Tui => vec![("jcode", "rcode")],
+        SelfDevBuildTarget::All | SelfDevBuildTarget::Auto => vec![("jcode", "rcode")],
     };
     let wrapper = repo_dir.join("scripts").join("dev_cargo.sh");
     // `bash` on Windows may resolve to WSL, which cannot use the native Rust
@@ -695,7 +695,7 @@ mod tests {
                 "-p",
                 "jcode",
                 "--bin",
-                "jcode"
+                "rcode"
             ]
         );
         assert!(
@@ -746,6 +746,8 @@ mod tests {
                 "jcode",
                 "--bin",
                 "jcode",
+                "--bin",
+                "rcode",
             ]
         );
     }
