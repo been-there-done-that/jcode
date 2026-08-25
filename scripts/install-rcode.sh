@@ -261,7 +261,7 @@ version="${VERSION#v}"
 dest_version_dir="$version_dir/$version"
 mkdir -p "$dest_version_dir"
 
-bin_name="jcode${EXE}"
+bin_name="rcode${EXE}"
 
 if [ "$download_mode" = "tar" ]; then
   tar xzf "$tmpdir/jcode.download" -C "$tmpdir"
