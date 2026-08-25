@@ -741,12 +741,12 @@ impl Server {
 
         // Initialize the background runner even when ambient mode is disabled so
         // session-targeted scheduled tasks still have a live delivery loop.
-        let ambient_runner = {
-            let safety = Arc::new(crate::safety::SafetySystem::new());
-            let handle = AmbientRunnerHandle::new(safety);
-            crate::tool::ambient::init_schedule_runner(handle.clone());
-            Some(handle)
-        };
+        let safety = Arc::new(crate::safety::SafetySystem::new());
+        safety.init_classifier(Arc::clone(&provider) as Arc<dyn jcode_provider_core::Provider + Send + Sync>);
+        let handle = AmbientRunnerHandle::new(Arc::clone(&safety));
+        crate::tool::ambient::init_safety_system(safety);
+        crate::tool::ambient::init_schedule_runner(handle.clone());
+        let ambient_runner = Some(handle);
 
         let LoadedSwarmRuntimeState {
             plans: restored_swarm_plans,
