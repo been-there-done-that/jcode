@@ -66,11 +66,11 @@ persist_install_conversion_id() {
   [ "${JCODE_NO_TELEMETRY:-}" != "1" ] || return 0
   [ "${DO_NOT_TRACK:-}" != "1" ] || return 0
   valid_conversion_id || return 0
-  jcode_home="${JCODE_HOME:-$HOME/.jcode}"
-  mkdir -p "$jcode_home" 2>/dev/null || return 0
-  (umask 077; printf '%s\n' "$JCODE_INSTALL_CONVERSION_ID" > "$jcode_home/install_conversion_id") \
+  rcode_home="${RCODE_HOME:-$HOME/.rcode}"
+  mkdir -p "$rcode_home" 2>/dev/null || return 0
+  (umask 077; printf '%s\n' "$JCODE_INSTALL_CONVERSION_ID" > "$rcode_home/install_conversion_id") \
     2>/dev/null || return 0
-  chmod 600 "$jcode_home/install_conversion_id" 2>/dev/null || true
+  chmod 600 "$rcode_home/install_conversion_id" 2>/dev/null || true
 }
 
 install_exit() {
@@ -194,7 +194,7 @@ fi
 
 if [ -n "$EXISTING" ]; then
   if echo "$EXISTING" | grep -qF "${VERSION#v}"; then
-    info "rcode $VERSION is already installed — reinstalling"
+    info "rcode v$VERSION is already installed — reinstalling"
   else
     info "Updating rcode $EXISTING → $VERSION"
   fi
@@ -277,7 +277,7 @@ else
   command -v git >/dev/null 2>&1 || err "git is required to build from source"
   command -v cargo >/dev/null 2>&1 || err "cargo is required to build from source"
 
-  src_dir="$tmpdir/jcode-src"
+  src_dir="$tmpdir/rcode-src"
   git clone --depth 1 --branch "$VERSION" "https://github.com/$REPO.git" "$src_dir" \
     || err "Failed to clone $REPO at $VERSION"
   cargo build --release --manifest-path "$src_dir/Cargo.toml" \
@@ -301,13 +301,13 @@ if [ "$IS_TERMUX" = true ] && [ "$IS_WINDOWS" = false ]; then
     if [ -x "$termux_glibc_linker" ]; then
       if command -v patchelf >/dev/null 2>&1; then
         patchelf --set-interpreter "$termux_glibc_linker" "$dest_version_dir/$bin_name" \
-          || err "Failed to patch jcode ELF interpreter for Termux glibc"
+          || err "Failed to patch rcode ELF interpreter for Termux glibc"
         info "Patched Termux glibc ELF interpreter: $termux_glibc_linker"
       else
-        info "Termux detected: install patchelf with 'pkg install patchelf' and rerun this installer if jcode fails to start."
+        info "Termux detected: install patchelf with 'pkg install patchelf' and rerun this installer if rcode fails to start."
       fi
     else
-      info "Termux detected: install glibc with 'pkg install glibc' if jcode fails due to a missing dynamic linker."
+      info "Termux detected: install glibc with 'pkg install glibc' if rcode fails due to a missing dynamic linker."
     fi
   fi
 fi
@@ -364,7 +364,7 @@ if [ "${JCODE_SKIP_SERVER_RELOAD:-}" != "1" ]; then
   [ -x "$reload_bin" ] || reload_bin="$stable_dir/$bin_name"
   if [ -x "$reload_bin" ]; then
     if "$reload_bin" server reload </dev/null >/dev/null 2>&1; then
-      info "Reloaded the running jcode server onto $VERSION (if one was active)."
+      info "Reloaded the running rcode server onto $VERSION (if one was active)."
     fi
   fi
 fi
@@ -416,20 +416,20 @@ JCODE_PS_BROADCAST_EOF
   fi
 
   echo ""
-  info "✅ jcode $VERSION installed successfully!"
+  info "✅ rcode v$VERSION installed successfully!"
   echo ""
   if [ "$win_path_persisted" = true ]; then
-    info "Added $win_install_dir to your user PATH. New terminals will find jcode automatically."
+    info "Added $win_install_dir to your user PATH. New terminals will find rcode automatically."
   fi
-  if command -v jcode >/dev/null 2>&1; then
-    info "Run 'jcode' to get started."
+  if command -v rcode >/dev/null 2>&1; then
+    info "Run 'rcode' to get started."
   else
-    echo "  To start using jcode in THIS terminal right now, run:"
+    echo "  To start using rcode in THIS terminal right now, run:"
     echo ""
-    printf '    \033[1;32mexport PATH="%s:$PATH" && jcode\033[0m\n' "$INSTALL_DIR"
+    printf '    \033[1;32mexport PATH="%s:$PATH" && rcode\033[0m\n' "$INSTALL_DIR"
     if [ "$win_path_persisted" != true ]; then
       echo ""
-      echo "  To add jcode to PATH permanently (PowerShell):"
+      echo "  To add rcode to PATH permanently (PowerShell):"
       echo ""
       printf '    \033[1;32m[Environment]::SetEnvironmentVariable("Path", "%s;" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")\033[0m\n' "$win_install_dir"
     fi
@@ -454,7 +454,7 @@ else
       mkdir -p "$(dirname "$rc")"
     fi
     if ! grep -qF "$INSTALL_DIR" "$rc" 2>/dev/null; then
-      printf '\n# Added by jcode installer\n%s\n' "$PATH_LINE" >> "$rc"
+      printf '\n# Added by rcode installer\n%s\n' "$PATH_LINE" >> "$rc"
       added_to="$added_to $rc"
     fi
   }
@@ -469,7 +469,7 @@ else
     fi
     if ! grep -qF "$INSTALL_DIR" "$rc" 2>/dev/null; then
       {
-        printf '\n# Added by jcode installer\n'
+        printf '\n# Added by rcode installer\n'
         printf 'if not contains "%s" $PATH\n' "$INSTALL_DIR"
         printf '    set -gx PATH "%s" $PATH\n' "$INSTALL_DIR"
         printf 'end\n'
@@ -508,25 +508,25 @@ else
   fi
 
   echo ""
-  info "✅ jcode $VERSION installed successfully!"
+  info "✅ rcode v$VERSION installed successfully!"
   echo ""
 
   if [ "$(uname -s)" = "Darwin" ]; then
     if [ "$hotkey_setup_ready" = true ]; then
-      info "Global hotkey ready: Cmd+; launches a new jcode from anywhere, system-wide"
+      info "Global hotkey ready: Cmd+; launches a new rcode from anywhere, system-wide"
     else
-      info "Tip: run 'jcode setup-hotkey' so Cmd+; launches jcode system-wide on macOS"
+      info "Tip: run 'rcode setup-hotkey' so Cmd+; launches rcode system-wide on macOS"
     fi
   fi
 
-  if command -v jcode >/dev/null 2>&1; then
-    info "Run 'jcode' to get started."
+  if command -v rcode >/dev/null 2>&1; then
+    info "Run 'rcode' to get started."
   else
-    echo "  To start using jcode right now, run:"
+    echo "  To start using rcode right now, run:"
     echo ""
-    printf '    \033[1;32mexport PATH="%s:\$PATH" && jcode\033[0m\n' "$INSTALL_DIR"
+    printf '    \033[1;32mexport PATH="%s:\$PATH" && rcode\033[0m\n' "$INSTALL_DIR"
     echo ""
-    echo "  Future terminal sessions will have jcode on PATH automatically."
+    echo "  Future terminal sessions will have rcode on PATH automatically."
   fi
 fi
 
