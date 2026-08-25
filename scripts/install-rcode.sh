@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="been-there-done-that/jcode"
-RELEASE_METADATA_BASE="${JCODE_RELEASE_METADATA_BASE:-https://jcode.sh/releases}"
+RELEASE_METADATA_BASE="${RCODE_RELEASE_METADATA_BASE:-https://github.com/been-there-done-that/jcode/releases}"
 IS_WINDOWS=false
 IS_TERMUX=false
 INSTALL_STAGE="startup"
@@ -59,7 +59,7 @@ report_install_funnel() {
     "$(telemetry_value "$outcome")" \
     "$(telemetry_value "$failure_stage")")
   curl -fsS --max-time 2 -H 'Content-Type: application/json' \
-    --data "$payload" https://telemetry.jcode.sh/v1/event >/dev/null 2>&1 || true
+    --data "$payload" https://telemetry.rcode.sh/v1/event >/dev/null 2>&1 || true
 }
 
 persist_install_conversion_id() {
@@ -143,13 +143,13 @@ esac
 report_install_funnel "installer_start" "success" ""
 
 if [ "$IS_WINDOWS" = true ]; then
-  INSTALL_DIR="${JCODE_INSTALL_DIR:-$LOCALAPPDATA/jcode/bin}"
+  INSTALL_DIR="${JCODE_INSTALL_DIR:-$LOCALAPPDATA/rcode/bin}"
 else
   INSTALL_DIR="${JCODE_INSTALL_DIR:-$HOME/.local/bin}"
 fi
 
 # Prefer GitHub's stable redirect when it is reachable so publication changes
-# are visible immediately. jcode.sh keeps a static copy of the latest published
+# are visible immediately. rcode.sh keeps a static copy of the latest published
 # tag as an independent fallback for GitHub outages, blocks, and shared-network
 # throttling. Neither path uses the rate-limited unauthenticated GitHub API.
 INSTALL_STAGE="release_lookup"
@@ -167,7 +167,7 @@ if [ -z "$VERSION" ]; then
     VERSION="$GITHUB_VERSION"
   elif valid_release_tag "$METADATA_VERSION"; then
     VERSION="$METADATA_VERSION"
-    info "GitHub release lookup unavailable; using cached jcode.sh metadata ($VERSION)."
+    info "GitHub release lookup unavailable; using cached rcode.sh metadata ($VERSION)."
   fi
 fi
 valid_release_tag "$VERSION" || err "Failed to determine latest version"
@@ -217,7 +217,7 @@ for candidate in "$ARTIFACT.tar.gz" "$ARTIFACT$EXE"; do
   while IFS= read -r base; do
     [ -n "$base" ] || continue
     if curl -fsSL --retry 2 --connect-timeout 10 \
-      "${base%/}/$candidate" -o "$tmpdir/jcode.download" 2>/dev/null; then
+      "${base%/}/$candidate" -o "$tmpdir/rcode.download" 2>/dev/null; then
       downloaded_asset="$candidate"
       case "$candidate" in
         *.tar.gz) download_mode="tar" ;;
@@ -247,7 +247,7 @@ if [ -n "$download_mode" ]; then
   done
   printf '%s' "$EXPECTED_SHA256" | grep -Eq '^[0-9a-f]{64}$' \
     || err "Could not find a trusted SHA-256 checksum for $downloaded_asset in $VERSION"
-  ACTUAL_SHA256=$(sha256_file "$tmpdir/jcode.download") \
+  ACTUAL_SHA256=$(sha256_file "$tmpdir/rcode.download") \
     || err "sha256sum, shasum, or openssl is required to verify the download"
   [ "$ACTUAL_SHA256" = "$EXPECTED_SHA256" ] \
     || err "SHA-256 verification failed for $downloaded_asset"
@@ -264,14 +264,14 @@ mkdir -p "$dest_version_dir"
 bin_name="rcode${EXE}"
 
 if [ "$download_mode" = "tar" ]; then
-  tar xzf "$tmpdir/jcode.download" -C "$tmpdir"
+  tar xzf "$tmpdir/rcode.download" -C "$tmpdir"
   src_bin="$tmpdir/rcode${EXE}"
   [ -f "$src_bin" ] || err "Downloaded archive did not contain expected binary: rcode${EXE}"
   find "$tmpdir" -maxdepth 1 -type f \( -name "${ARTIFACT}${EXE}.bin" -o -name 'libssl.so*' -o -name 'libcrypto.so*' \) \
     -exec cp -f {} "$dest_version_dir/" \;
   mv "$src_bin" "$dest_version_dir/$bin_name"
 elif [ "$download_mode" = "bin" ]; then
-  mv "$tmpdir/jcode.download" "$dest_version_dir/$bin_name"
+  mv "$tmpdir/rcode.download" "$dest_version_dir/$bin_name"
 else
   info "No prebuilt asset found for $ARTIFACT in $VERSION; building from source..."
   command -v git >/dev/null 2>&1 || err "git is required to build from source"
@@ -336,7 +336,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
   xattr -d com.apple.quarantine "$dest_version_dir/$bin_name" 2>/dev/null || true
   # Generate the architecture-matched LSUIElement notification broker (and the
   # normal Spotlight launcher) from the verified binary. Best-effort here: the
-  # first interactive jcode launch performs the same version-gated repair.
+  # first interactive rcode launch performs the same version-gated repair.
   if "$launcher_path" setup-launcher </dev/null >/dev/null 2>&1; then
     info "Installed macOS launcher and turn-notification broker."
   fi
@@ -374,9 +374,9 @@ if [ "$IS_WINDOWS" = true ]; then
   win_install_dir=$(cygpath -w "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")
 
   # Persist the launcher dir on the USER PATH so every future shell (PowerShell,
-  # cmd, Git Bash, Windows Terminal) finds jcode without manual setup. This is
+  # cmd, Git Bash, Windows Terminal) finds rcode without manual setup. This is
   # the Git Bash (`curl | sh`) counterpart of install.ps1's Set-JcodeUserPath:
-  # read the user PATH, drop stale jcode launcher entries (case- and trailing-
+  # read the user PATH, drop stale rcode launcher entries (case- and trailing-
   # slash-insensitive), prepend the canonical dir, and broadcast
   # WM_SETTINGCHANGE so already-open apps can pick up the change.
   win_path_persisted=false
