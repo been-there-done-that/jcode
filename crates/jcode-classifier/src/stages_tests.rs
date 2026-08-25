@@ -84,11 +84,13 @@ DECISION: NO
 "#;
     
     let result = parse_stage1_response(response, 1).unwrap();
-    
+
     match result.decision {
         Decision::Allow => panic!("Expected Block, got Allow"),
         Decision::Block { detail, .. } => {
-            assert!(detail.contains("Flagged by fast filter"));
+            // The block detail should carry the classifier's REASON so the
+            // agent can see why the action was rejected.
+            assert!(detail.contains("delete all files"));
         }
     }
 }

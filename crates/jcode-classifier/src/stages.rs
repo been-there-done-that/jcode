@@ -155,30 +155,51 @@ fn format_json(value: &serde_json::Value) -> String {
 pub fn parse_stage1_response(response: &str, stage: u8) -> Result<ClassifierResult> {
     // Extract REASON and DECISION
     let response = response.trim();
-    
+
     let mut reason = String::new();
     let mut decision = None;
-    
+
     for line in response.lines() {
         let line = line.trim();
-        
-        if line.starts_with("REASON:") {
-            reason = line.trim_start_matches("REASON:").trim().to_string();
-        } else if line.starts_with("DECISION:") {
-            let value = line.trim_start_matches("DECISION:").trim().to_uppercase();
-            decision = match value.as_str() {
-                "YES" => Some(Decision::Allow),
+
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        // Keys are matched case-insensitively ("DECISION:" / "decision:").
+        let key = key.trim().to_uppercase();
+        let value = value.trim();
+
+        if key == "REASON" {
+            reason = value.to_string();
+        } else if key == "DECISION" {
+            let upper = value.to_uppercase();
+            decision = match upper.as_str() {
+                "YES" | "ALLOW" => Some(Decision::Allow),
                 "NO" => Some(Decision::Block {
                     category: BlockCategory::DestroyExfiltrate, // Default category
-                    detail: "Flagged by fast filter".to_string(),
+                    // Surface the classifier's REASON so callers (and the
+                    // agent) see *why* the action was rejected, not just that
+                    // the fast filter flagged it.
+                    detail: if reason.is_empty() {
+                        "Flagged by fast filter".to_string()
+                    } else {
+                        reason.clone()
+                    },
                 }),
                 _ => {
-                    // Try to parse BLOCK format
-                    if value.starts_with("BLOCK:") {
-                        let detail = value.trim_start_matches("BLOCK:").trim().to_string();
+                    // Try to parse BLOCK format, keeping the detail's
+                    // original casing (to_uppercase would mangle it).
+                    if let Some((tag, rest)) = value.split_once(':')
+                        && tag.trim().eq_ignore_ascii_case("BLOCK")
+                    {
                         Some(Decision::Block {
                             category: BlockCategory::DestroyExfiltrate,
-                            detail,
+                            detail: rest.trim().to_string(),
+                        })
+                    } else if upper.starts_with("BLOCK") && !value.contains(':') {
+                        Some(Decision::Block {
+                            category: BlockCategory::DestroyExfiltrate,
+                            detail: value.to_string(),
                         })
                     } else {
                         None
@@ -187,11 +208,11 @@ pub fn parse_stage1_response(response: &str, stage: u8) -> Result<ClassifierResu
             };
         }
     }
-    
+
     let decision = decision.ok_or_else(|| {
         anyhow!("Failed to parse decision from response: {}", response)
     })?;
-    
+
     Ok(ClassifierResult {
         decision,
         reason,
@@ -203,22 +224,30 @@ pub fn parse_stage1_response(response: &str, stage: u8) -> Result<ClassifierResu
 pub fn parse_stage2_response(response: &str, stage: u8) -> Result<ClassifierResult> {
     // Similar to Stage 1 but looks for ALLOW/BLOCK instead of YES/NO
     let response = response.trim();
-    
+
     let mut reason = String::new();
     let mut decision = None;
-    
+
     for line in response.lines() {
         let line = line.trim();
-        
-        if line.starts_with("REASON:") {
-            reason = line.trim_start_matches("REASON:").trim().to_string();
-        } else if line.starts_with("DECISION:") {
-            let value = line.trim_start_matches("DECISION:").trim().to_uppercase();
-            
-            if value == "ALLOW" {
+
+        let Some((key, value)) = line.split_once(':') else {
+            continue;
+        };
+        let key = key.trim().to_uppercase();
+        let value = value.trim();
+
+        if key == "REASON" {
+            reason = value.to_string();
+        } else if key == "DECISION" {
+            // Keep the detail's original casing (an early to_uppercase would
+            // mangle "Force push" into "FORCE PUSH").
+            if value.eq_ignore_ascii_case("ALLOW") || value.eq_ignore_ascii_case("YES") {
                 decision = Some(Decision::Allow);
-            } else if value.starts_with("BLOCK:") {
-                let detail = value.trim_start_matches("BLOCK:").trim().to_string();
+            } else if let Some((tag, rest)) = value.split_once(':')
+                && tag.trim().eq_ignore_ascii_case("BLOCK")
+            {
+                let detail = rest.trim().to_string();
                 let category = infer_category(&reason, &detail);
                 decision = Some(Decision::Block {
                     category,
@@ -227,16 +256,16 @@ pub fn parse_stage2_response(response: &str, stage: u8) -> Result<ClassifierResu
             } else {
                 decision = Some(Decision::Block {
                     category: BlockCategory::DestroyExfiltrate,
-                    detail: value,
+                    detail: value.to_string(),
                 });
             }
         }
     }
-    
+
     let decision = decision.ok_or_else(|| {
         anyhow!("Failed to parse decision from response: {}", response)
     })?;
-    
+
     Ok(ClassifierResult {
         decision,
         reason,

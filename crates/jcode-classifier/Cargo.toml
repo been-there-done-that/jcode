@@ -28,3 +28,13 @@ futures-util = "0.3"
 
 [dev-dependencies]
 tempfile = "3"
+
+# Test files live under src/ (historical layout) and reference the public API,
+# so they are registered explicitly rather than auto-discovered.
+[[test]]
+name = "stages_tests"
+path = "src/stages_tests.rs"
+
+[[test]]
+name = "decision_tests"
+path = "src/decision_tests.rs"

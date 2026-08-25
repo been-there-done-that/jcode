@@ -7,6 +7,7 @@ mod mock_provider;
 mod test_support;
 
 mod ambient;
+mod auto_mode;
 mod binary_integration;
 mod burst_spawn;
 mod provider_behavior;
