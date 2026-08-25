@@ -17,6 +17,9 @@ serde_json = "1"
 jcode-provider-core = { path = "../jcode-provider-core" }
 jcode-message-types = { path = "../jcode-message-types" }
 
+# Config types
+jcode-config-types = { path = "../jcode-config-types" }
+
 # Utilities
 anyhow = "1"
 async-trait = "0.1"

@@ -13,19 +13,19 @@ pub struct ClassifierConfig {
     /// - Some("claude:claude-sonnet-4-20250514"): Use specific model
     #[serde(default)]
     pub model_route: Option<String>,
-
+    
     /// Trust boundaries.
     #[serde(default)]
     pub trust_boundaries: TrustBoundaries,
-
+    
     /// Which block rules are active.
     #[serde(default)]
     pub block_rules: BlockRules,
-
+    
     /// Exceptions to block rules.
     #[serde(default)]
     pub allow_exceptions: Vec<String>,
-
+    
     /// Stage 1 recall bias (0.0 = balanced, 1.0 = catch everything).
     /// 
     /// Higher values mean fewer false negatives (catch more dangerous actions)
@@ -51,6 +51,13 @@ impl Default for ClassifierConfig {
             ],
             stage1_recall_bias: 0.8,
         }
+    }
+}
+
+impl ClassifierConfig {
+    /// Create a default configuration.
+    pub fn default_config() -> Self {
+        Self::default()
     }
 }
 
@@ -98,77 +105,24 @@ pub struct BlockRules {
     pub bypass_review: bool,
 }
 
-/// Permission modes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PermissionMode {
-    /// Always ask for confirmation (existing behavior).
-    #[default]
-    Manual,
-    /// Use AI classifier for decisions.
-    Auto,
-}
-
-/// Top-level permissions configuration.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct PermissionsConfig {
-    /// Default permission mode for new sessions.
-    #[serde(default)]
-    pub default_mode: PermissionMode,
-
-    /// Auto mode configuration.
-    #[serde(default)]
-    pub auto_mode: AutoModeConfig,
-}
-
-/// Auto mode configuration.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct AutoModeConfig {
-    /// Model to use for classification.
-    #[serde(default)]
-    pub classifier_model: Option<String>,
-
-    /// Stage 1 fast filter settings.
-    #[serde(default)]
-    pub stage1: Stage1Config,
-
-    /// Trust boundaries.
-    #[serde(default)]
-    pub trust_boundaries: TrustBoundaries,
-
-    /// Block rules.
-    #[serde(default)]
-    pub block_rules: BlockRules,
-
-    /// Allow exceptions.
-    #[serde(default)]
-    pub allow_exceptions: Vec<String>,
-}
-
-/// Stage 1 configuration.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Stage1Config {
-    /// Recall bias for Stage 1.
-    #[serde(default = "default_recall_bias")]
-    pub recall_bias: f32,
-}
-
-impl Default for Stage1Config {
-    fn default() -> Self {
-        Self {
-            recall_bias: 0.8,
-        }
-    }
-}
-
-impl From<&PermissionsConfig> for ClassifierConfig {
-    fn from(permissions: &PermissionsConfig) -> Self {
+/// Convert from jcode-config-types PermissionsConfig to ClassifierConfig.
+impl From<&jcode_config_types::PermissionsConfig> for ClassifierConfig {
+    fn from(permissions: &jcode_config_types::PermissionsConfig) -> Self {
         Self {
             model_route: permissions.auto_mode.classifier_model.clone(),
-            trust_boundaries: permissions.auto_mode.trust_boundaries.clone(),
-            block_rules: permissions.auto_mode.block_rules.clone(),
+            trust_boundaries: TrustBoundaries {
+                working_directory: permissions.auto_mode.trust_boundaries.working_directory,
+                git_remotes: permissions.auto_mode.trust_boundaries.git_remotes.clone(),
+                internal_services: permissions.auto_mode.trust_boundaries.internal_services.clone(),
+            },
+            block_rules: BlockRules {
+                destroy_exfiltrate: permissions.auto_mode.block_rules.destroy_exfiltrate,
+                degrade_security: permissions.auto_mode.block_rules.degrade_security,
+                cross_boundaries: permissions.auto_mode.block_rules.cross_boundaries,
+                bypass_review: permissions.auto_mode.block_rules.bypass_review,
+            },
             allow_exceptions: permissions.auto_mode.allow_exceptions.clone(),
-            stage1_recall_bias: permissions.auto_mode.stage1.recall_bias,
+            stage1_recall_bias: permissions.auto_mode.recall_bias,
         }
     }
 }

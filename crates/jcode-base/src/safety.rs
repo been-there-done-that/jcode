@@ -5,12 +5,15 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use jcode_classifier::{
-    Classifier, ClassifierConfig, DenialTracker, PermissionMode, PermissionsConfig,
-    SessionProviderClassifier,
+    Classifier, ClassifierConfig, DenialTracker, SessionProviderClassifier,
 };
 use jcode_message_types::Message;
 
 use crate::storage;
+
+// Re-export types for external use
+pub use jcode_classifier::ToolCall;
+pub use jcode_config_types::{PermissionMode, PermissionsConfig};
 
 /// Hook invoked to deliver a permission-request notification.
 ///
@@ -233,6 +236,25 @@ impl SafetySystem {
         };
 
         classifier.classify(&input).await
+    }
+
+    /// Simplified auto-classification that takes permissions config by value.
+    /// This is a convenience wrapper around classify_ai for cases where the
+    /// config is owned (e.g., from config().permissions).
+    pub async fn classify_ai_auto(
+        &self,
+        tool_call: jcode_classifier::ToolCall,
+        recent_history: Vec<Message>,
+        working_directory: PathBuf,
+        permissions_config: &PermissionsConfig,
+    ) -> Result<jcode_classifier::ClassifierResult> {
+        self.classify_ai(
+            "", // user_message - not available in tool context
+            tool_call,
+            recent_history,
+            working_directory,
+            permissions_config,
+        ).await
     }
 
     /// Classify an action name into a tier.

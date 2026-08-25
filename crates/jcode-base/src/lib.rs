@@ -72,6 +72,9 @@ pub mod recent_session_index;
 pub mod registry;
 pub mod runtime_memory_log;
 pub mod safety;
+
+// Re-export classifier types for convenience
+pub use safety::SafetySystem;
 pub mod secret_input;
 pub mod session;
 pub mod session_list_cache;

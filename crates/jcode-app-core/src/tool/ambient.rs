@@ -8,6 +8,8 @@ use crate::safety::{self, PermissionRequest, PermissionResult, SafetySystem, Urg
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::Utc;
+use crate::safety::{PermissionMode, ToolCall};
+use jcode_classifier::Decision;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use std::collections::HashSet;
@@ -663,11 +665,62 @@ impl Tool for RequestPermissionTool {
         });
         if let Some(obj) = request_context.as_object_mut() {
             obj.insert("review".to_string(), review);
-            if let Some(user_context) = params.context {
-                obj.insert("details".to_string(), user_context);
+            if let Some(ref user_context) = params.context {
+                obj.insert("details".to_string(), user_context.clone());
             }
         }
 
+        let system = get_safety_system();
+
+        // Check permission mode
+        let permissions_config = &crate::config::config().permissions;
+        if permissions_config.default_mode == PermissionMode::Auto {
+            // Auto Mode: Use AI classifier for decisions
+            let tool_call = ToolCall {
+                name: params.action.clone(),
+                arguments: serde_json::json!({
+                    "description": params.description,
+                    "rationale": params.rationale,
+                    "urgency": params.urgency,
+                    "wait": params.wait,
+                    "context": params.context,
+                }),
+            };
+
+            // TODO: Get user message and recent history from context
+            // For now, use empty history - this needs session context
+            let result = system.classify_ai_auto(
+                tool_call,
+                Vec::new(),
+                ctx.working_dir.clone().unwrap_or_default(),
+                permissions_config,
+            ).await;
+
+            match result {
+                Ok(classifier_result) => {
+                    let (approved, reason) = match &classifier_result.decision {
+                        Decision::Allow => (true, &classifier_result.reason),
+                        Decision::Block { detail, .. } => {
+                            (false, detail)
+                        }
+                    };
+                    
+                    if approved {
+                        let output = format!("Permission auto-approved: {}", reason);
+                        return Ok(ToolOutput::new(output).with_title(format!("permission: {}", params.action)));
+                    } else {
+                        let output = format!("Permission auto-denied: {}", reason);
+                        return Ok(ToolOutput::new(output).with_title(format!("permission denied: {}", params.action)));
+                    }
+                }
+                Err(e) => {
+                    // Classifier failed, fall back to manual mode
+                    eprintln!("Classifier error (falling back to manual): {}", e);
+                }
+            }
+        }
+
+        // Manual Mode: Queue for user review
         let request = PermissionRequest {
             id: request_id.clone(),
             action: params.action.clone(),
@@ -679,7 +732,6 @@ impl Tool for RequestPermissionTool {
             context: Some(request_context),
         };
 
-        let system = get_safety_system();
         let result = system.request_permission(request);
 
         let output = match result {

@@ -26,8 +26,8 @@ pub mod denial_tracker;
 pub mod input;
 pub mod stages;
 
-// Re-export config types and decision types
-pub use config::{AutoModeConfig, BlockRules, ClassifierConfig, PermissionMode, PermissionsConfig, Stage1Config, TrustBoundaries};
+// Re-export types
+pub use config::{BlockRules, ClassifierConfig, TrustBoundaries};
 pub use decision::{BlockCategory, Decision};
 pub use denial_tracker::DenialTracker;
 
@@ -147,23 +147,6 @@ impl Classifier for SessionProviderClassifier {
 
     fn model_name(&self) -> String {
         self.provider.model()
-    }
-}
-
-impl config::ClassifierConfig {
-    /// Create a default configuration.
-    pub fn default_config() -> Self {
-        Self {
-            model_route: None,
-            trust_boundaries: config::TrustBoundaries::default(),
-            block_rules: config::BlockRules::default(),
-            allow_exceptions: vec![
-                "package_install_from_lockfile".to_string(),
-                "standard_credential_flows".to_string(),
-                "push_to_working_branch".to_string(),
-            ],
-            stage1_recall_bias: 0.8,
-        }
     }
 }
 
