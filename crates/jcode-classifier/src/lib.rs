@@ -26,6 +26,11 @@ pub mod denial_tracker;
 pub mod input;
 pub mod stages;
 
+// Re-export config types and decision types
+pub use config::{AutoModeConfig, BlockRules, ClassifierConfig, PermissionMode, PermissionsConfig, Stage1Config, TrustBoundaries};
+pub use decision::{BlockCategory, Decision};
+pub use denial_tracker::DenialTracker;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 

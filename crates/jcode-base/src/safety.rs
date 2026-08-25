@@ -1,7 +1,14 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::{Mutex, OnceLock};
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock};
+
+use jcode_classifier::{
+    Classifier, ClassifierConfig, DenialTracker, PermissionMode, PermissionsConfig,
+    SessionProviderClassifier,
+};
+use jcode_message_types::Message;
 
 use crate::storage;
 
@@ -151,6 +158,12 @@ pub struct SafetySystem {
     queue: Mutex<Vec<PermissionRequest>>,
     history: Mutex<Vec<Decision>>,
     actions: Mutex<Vec<ActionLog>>,
+    /// AI classifier for Auto Mode (initialized lazily).
+    classifier: Mutex<Option<Arc<dyn Classifier>>>,
+    /// Denial tracker for escalation handling.
+    denial_tracker: Mutex<DenialTracker>,
+    /// Current permission mode.
+    mode: Mutex<PermissionMode>,
 }
 
 impl SafetySystem {
@@ -170,7 +183,56 @@ impl SafetySystem {
             queue: Mutex::new(queue),
             history: Mutex::new(history),
             actions: Mutex::new(Vec::new()),
+            classifier: Mutex::new(None),
+            denial_tracker: Mutex::new(DenialTracker::new()),
+            mode: Mutex::new(PermissionMode::Manual),
         }
+    }
+
+    /// Set the permission mode.
+    pub fn set_mode(&self, mode: PermissionMode) {
+        *self.mode.lock().unwrap() = mode;
+    }
+
+    /// Get the current permission mode.
+    pub fn mode(&self) -> PermissionMode {
+        *self.mode.lock().unwrap()
+    }
+
+    /// Initialize the AI classifier with the given provider.
+    pub fn init_classifier(&self, provider: Arc<dyn jcode_provider_core::Provider + Send + Sync>) {
+        let mut classifier = self.classifier.lock().unwrap();
+        *classifier = Some(Arc::new(SessionProviderClassifier::new(provider, ClassifierConfig::default_config())));
+    }
+
+    /// Classify a permission request using the AI classifier (Auto Mode).
+    /// Returns the classifier result or an error.
+    pub async fn classify_ai(
+        &self,
+        user_message: &str,
+        tool_call: jcode_classifier::ToolCall,
+        recent_history: Vec<Message>,
+        working_directory: PathBuf,
+        config: &PermissionsConfig,
+    ) -> Result<jcode_classifier::ClassifierResult> {
+        // Ensure classifier is initialized
+        let classifier = {
+            let guard = self.classifier.lock().unwrap();
+            guard
+                .clone()
+                .ok_or_else(|| anyhow::anyhow!("classifier not initialized"))
+        }?;
+
+        let classifier_config = ClassifierConfig::from(config);
+        let input = jcode_classifier::ClassifierInput {
+            user_message: user_message.to_string(),
+            tool_call,
+            recent_history,
+            working_directory,
+            config: classifier_config,
+        };
+
+        classifier.classify(&input).await
     }
 
     /// Classify an action name into a tier.

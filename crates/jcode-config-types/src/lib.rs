@@ -1447,6 +1447,97 @@ impl Default for SafetyConfig {
     }
 }
 
+/// Permission mode enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionMode {
+    /// Always ask for confirmation (existing behavior).
+    #[default]
+    Manual,
+    /// Use AI classifier for decisions.
+    Auto,
+}
+
+/// Trust boundaries for the classifier.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TrustBoundaries {
+    /// The git repository you're working in (default: true).
+    pub working_directory: bool,
+    /// Trusted git remote patterns (glob patterns).
+    pub git_remotes: Vec<String>,
+    /// Internal services/domains.
+    pub internal_services: Vec<String>,
+}
+
+/// Block rules for the classifier.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BlockRules {
+    /// Permanent data destruction or exfiltration.
+    pub destroy_exfiltrate: bool,
+    /// Weakening system security.
+    pub degrade_security: bool,
+    /// Accessing untrusted infrastructure.
+    pub cross_boundaries: bool,
+    /// Skipping review safeguards.
+    pub bypass_review: bool,
+}
+
+/// Auto mode configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AutoModeConfig {
+    /// Model to use for classification (default: use session model).
+    pub classifier_model: Option<String>,
+    /// Stage 1 recall bias (0.0 = balanced, 1.0 = catch everything, default: 0.8).
+    pub recall_bias: f32,
+    /// Trust boundaries.
+    pub trust_boundaries: TrustBoundaries,
+    /// Block rules.
+    pub block_rules: BlockRules,
+    /// Actions that match a block rule but are still allowed.
+    pub allow_exceptions: Vec<String>,
+}
+
+/// Permission system configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PermissionsConfig {
+    /// Default permission mode for new sessions.
+    pub default_mode: PermissionMode,
+    /// Auto mode configuration.
+    pub auto_mode: AutoModeConfig,
+}
+
+impl Default for PermissionsConfig {
+    fn default() -> Self {
+        Self {
+            default_mode: PermissionMode::Manual,
+            auto_mode: AutoModeConfig {
+                classifier_model: None,
+                recall_bias: 0.8,
+                trust_boundaries: TrustBoundaries {
+                    working_directory: true,
+                    git_remotes: Vec::new(),
+                    internal_services: Vec::new(),
+                },
+                block_rules: BlockRules {
+                    destroy_exfiltrate: true,
+                    degrade_security: true,
+                    cross_boundaries: true,
+                    bypass_review: true,
+                },
+                allow_exceptions: vec![
+                    "package_install_from_lockfile".to_string(),
+                    "standard_credential_flows".to_string(),
+                    "push_to_working_branch".to_string(),
+                ],
+            },
+        }
+    }
+}
+
 /// WebSocket gateway configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
