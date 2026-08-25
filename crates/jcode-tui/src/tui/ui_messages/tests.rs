@@ -3321,3 +3321,85 @@ fn render_empty_todo_tool_result_collapses_to_compact_line() {
     assert!(!plain.contains("No tasks yet"), "{plain}");
     assert!(plain.contains("no tasks"), "{plain}");
 }
+
+#[test]
+fn acceptance_gh_workflow_scenario_renders_icons_full_command_and_tail() {
+    crate::tui::ui::tools_ui::tests_tool_call_details_override::set(true);
+    let msg = DisplayMessage {
+        role: "tool".to_string(),
+        content: "{ \"conclusion\": \"success\", \"status\": \"completed\" }".to_string(),
+        tool_calls: Vec::new(),
+        duration_secs: Some(0.4),
+        title: None,
+        tool_data: Some(crate::message::ToolCall {
+            id: "call_accept".to_string(),
+            name: "bash".to_string(),
+            input: serde_json::json!({
+                "command": "gh run view 32839606591 --repo LifesArc/lifesarc-backend --json status,conclusion"
+            }),
+            intent: Some("check CI status".to_string()),
+            thought_signature: None,
+        }),
+    };
+    let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
+    let plain = lines
+        .iter()
+        .map(extract_line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // icon + state + name on the row
+    assert!(plain.contains("✓ $ bash"), "{plain}");
+    // full command verbatim in the request block, NOT ellipsis-truncated
+    assert!(
+        plain.contains("gh run view 32839606591 --repo LifesArc/lifesarc-backend --json status,conclusion"),
+        "full command missing: {plain}"
+    );
+    // The inline summary is still width-truncated on the row; the request
+    // block below carries the full verbatim command. No ellipsis in the block.
+    assert!(
+        plain.contains("│ gh run view 32839606591"),
+        "request block missing full command: {plain}"
+    );
+    // output tail shows the result body
+    assert!(plain.contains("\"conclusion\": \"success\""), "{plain}");
+    crate::tui::ui::tools_ui::tests_tool_call_details_override::set(false);
+}
+
+#[test]
+fn acceptance_failure_shows_deep_red_tail_even_with_previews_off() {
+    crate::tui::ui::tools_ui::tests_show_bash_output_override::set(false);
+    crate::tui::ui::tools_ui::tests_tool_call_details_override::set(false);
+    let long_error = (0..20)
+        .map(|i| format!("error[{i}]: something failed"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let msg = DisplayMessage {
+        role: "tool".to_string(),
+        content: format!("{long_error}\nExit code: 101"),
+        tool_calls: Vec::new(),
+        duration_secs: None,
+        title: None,
+        tool_data: Some(crate::message::ToolCall {
+            id: "call_fail".to_string(),
+            name: "bash".to_string(),
+            input: serde_json::json!({"command": "cargo test"}),
+            intent: None,
+            thought_signature: None,
+        }),
+    };
+    let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off);
+    let plain = lines
+        .iter()
+        .map(extract_line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(plain.contains("✗ $ bash"), "{plain}");
+    assert!(plain.contains("exit 101"), "{plain}");
+    assert!(plain.contains("… 13 more lines"), "tail footer missing: {plain}");
+    // 8-line failure tail despite previews off: 7 raw error lines + exit line
+    let error_lines = plain.lines().filter(|l| l.contains("error[")).count();
+    assert_eq!(error_lines, 7, "expected 7 error lines in tail: {plain}");
+    assert!(plain.lines().any(|l| l.contains("│ Exit code: 101")));
+}
