@@ -1021,6 +1021,7 @@ pub(super) fn handle_permission_command_local(app: &mut App, trimmed: &str) -> b
         }
         "auto" => {
             app.permission_mode = jcode_config_types::PermissionMode::Auto;
+            crate::tool::set_safety_mode(jcode_config_types::PermissionMode::Auto);
             app.push_display_message(DisplayMessage::system(
                 "Permission mode set to Auto. AI will assist with permission decisions.".to_string(),
             ));
@@ -1029,6 +1030,7 @@ pub(super) fn handle_permission_command_local(app: &mut App, trimmed: &str) -> b
         }
         "manual" => {
             app.permission_mode = jcode_config_types::PermissionMode::Manual;
+            crate::tool::set_safety_mode(jcode_config_types::PermissionMode::Manual);
             app.push_display_message(DisplayMessage::system(
                 "Permission mode set to Manual. All permissions require confirmation.".to_string(),
             ));
@@ -1041,6 +1043,7 @@ pub(super) fn handle_permission_command_local(app: &mut App, trimmed: &str) -> b
                 jcode_config_types::PermissionMode::Auto => jcode_config_types::PermissionMode::Manual,
             };
             app.permission_mode = new_mode;
+            crate::tool::set_safety_mode(new_mode);
             let mode_str = match new_mode {
                 jcode_config_types::PermissionMode::Manual => "Manual",
                 jcode_config_types::PermissionMode::Auto => "Auto",

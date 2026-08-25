@@ -54,6 +54,12 @@ pub fn init_safety_system(system: Arc<SafetySystem>) {
     let _ = SAFETY_SYSTEM.set(system);
 }
 
+pub fn set_safety_mode(mode: PermissionMode) {
+    if let Some(system) = SAFETY_SYSTEM.get() {
+        system.set_mode(mode);
+    }
+}
+
 pub fn init_schedule_runner(handle: AmbientRunnerHandle) {
     if let Ok(mut slot) = SCHEDULE_RUNNER.get_or_init(|| Mutex::new(None)).lock() {
         *slot = Some(handle);
@@ -672,9 +678,8 @@ impl Tool for RequestPermissionTool {
 
         let system = get_safety_system();
 
-        // Check permission mode
-        let permissions_config = &crate::config::config().permissions;
-        if permissions_config.default_mode == PermissionMode::Auto {
+        // Check permission mode from SafetySystem (set by TUI)
+        if system.mode() == PermissionMode::Auto {
             // Auto Mode: Use AI classifier for decisions
             let tool_call = ToolCall {
                 name: params.action.clone(),
@@ -689,6 +694,7 @@ impl Tool for RequestPermissionTool {
 
             // TODO: Get user message and recent history from context
             // For now, use empty history - this needs session context
+            let permissions_config = &crate::config::config().permissions;
             let result = system.classify_ai_auto(
                 tool_call,
                 Vec::new(),
