@@ -1999,7 +1999,9 @@ fn render_tool_message_shows_intent_and_technical_preview_on_one_line() {
     let rendered = extract_line_text(&lines[0]);
 
     assert!(rendered.contains("bash · Verify compact progress card · $ cargo test"));
-    assert_eq!(lines.len(), 1, "Bash output is hidden by default");
+    // With tool_call_details on, the row is followed by the full request
+    // block (the command verbatim) and the output tail.
+    assert_eq!(lines.len(), 3, "request block + tail expected: {lines:?}");
     crate::tui::ui::tools_ui::tests_tool_call_details_override::set(false);
 }
 
@@ -2191,10 +2193,6 @@ fn render_tool_message_shows_gmail_draft_card() {
         .join("\n");
 
     assert!(plain.contains("Gmail draft created · draft_123"), "{plain}");
-    assert!(
-        !plain.contains('✉'),
-        "draft card should not show an icon: {plain}"
-    );
     assert!(plain.contains("To: bob@example.com"), "{plain}");
     assert!(plain.contains("Subject: Project update"), "{plain}");
     assert!(
@@ -2899,7 +2897,7 @@ fn render_tool_message_marks_failed_apply_patch_without_empty_diff() {
         .join("\n");
 
     assert!(
-        plain.trim_start().starts_with("✗ apply_patch"),
+        plain.trim_start().starts_with("✗ ✏️ apply_patch"),
         "plain={plain}"
     );
     assert!(!plain.contains("┌─ diff"), "plain={plain}");

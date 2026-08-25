@@ -1077,7 +1077,7 @@ fn test_render_tool_message_batch_nested_subcall_params_still_render() {
 
     assert_eq!(rendered.len(), 2, "rendered={rendered:?}");
     assert!(
-        rendered[0].contains("✓ batch 1 call"),
+        rendered[0].contains("✓ ⧉ batch 1 call"),
         "rendered={rendered:?}"
     );
     assert!(
@@ -1114,7 +1114,7 @@ fn test_render_tool_message_batch_flat_grep_subcall_uses_pattern_and_path() {
 
     assert_eq!(rendered.len(), 2, "rendered={rendered:?}");
     assert!(
-        rendered[0].contains("✓ batch 1 call"),
+        rendered[0].contains("✓ ⧉ batch 1 call"),
         "rendered={rendered:?}"
     );
     assert!(

@@ -154,6 +154,9 @@ struct TestState {
 }
 
 impl crate::tui::TuiState for TestState {
+    fn permission_mode(&self) -> jcode_config_types::PermissionMode {
+        jcode_config_types::PermissionMode::Manual
+    }
     fn display_messages(&self) -> &[DisplayMessage] {
         &self.display_messages
     }

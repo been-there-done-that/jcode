@@ -958,6 +958,13 @@ pub(super) fn draw_status(frame: &mut Frame, app: &dyn TuiState, area: Rect, pen
 
                 let mut spans =
                     running_tool_header_spans(spinner, name, tool_detail.as_deref(), anim_color);
+                spans.insert(
+                    1,
+                    Span::styled(
+                        format!("{} ", super::tools_ui::tool_display_icon(&name)),
+                        Style::default().fg(anim_color),
+                    ),
+                );
 
                 // For batch tool: show "completed/total · last_tool" progress
                 if is_batch {

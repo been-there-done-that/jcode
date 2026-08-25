@@ -38,6 +38,29 @@ pub fn is_edit_tool_name(name: &str) -> bool {
     )
 }
 
+/// Per-tool display icon. Built-in tools get a distinctive glyph so the
+/// transcript reads at a glance; unknown/MCP tools share a generic plug icon.
+pub fn tool_display_icon(name: &str) -> &'static str {
+    // Provider-side aliases (shell_exec, file_read, ...) are only known to
+    // resolve_display_tool_name; check both spellings before falling back.
+    let resolved = resolve_display_tool_name(name);
+    match canonical_tool_name(resolved) {
+        "bash" => "$",
+        "read" => "📄",
+        "write" | "edit" | "multiedit" | "patch" | "apply_patch" => "✏️",
+        "grep" | "agentgrep" => "🔍",
+        "glob" => "📂",
+        "todo" => "☑️",
+        "websearch" | "webfetch" => "🌐",
+        "subagent" => "🤖",
+        "swarm" => "🐝",
+        "batch" => "⧉",
+        "memory" => "🧠",
+        "gmail" => "✉️",
+        _ => "🔌",
+    }
+}
+
 fn parse_nonzero_exit_code_line(line: &str) -> bool {
     let trimmed = line.trim();
     if let Some(rest) = trimmed.strip_prefix("Exit code:") {
@@ -206,6 +229,17 @@ mod tests {
         assert_eq!(canonical_tool_name("ApplyPatch"), "apply_patch");
         assert!(is_edit_tool_name("MultiEdit"));
         assert!(!is_edit_tool_name("read"));
+    }
+
+    #[test]
+    fn maps_tool_display_icons() {
+        assert_eq!(tool_display_icon("bash"), "$");
+        assert_eq!(tool_display_icon("shell_exec"), "$");
+        assert_eq!(tool_display_icon("file_read"), "📄");
+        assert_eq!(tool_display_icon("edit"), "✏️");
+        assert_eq!(tool_display_icon("agentgrep"), "🔍");
+        assert_eq!(tool_display_icon("task_runner"), "🤖");
+        assert_eq!(tool_display_icon("mcp__pencil__browser"), "🔌");
     }
 
     #[test]

@@ -6,7 +6,8 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub(super) use jcode_tui_tool_display::concise_tool_error_summary;
 pub(crate) use jcode_tui_tool_display::{
-    canonical_tool_name, is_edit_tool_name, resolve_display_tool_name, tool_output_looks_failed,
+    canonical_tool_name, is_edit_tool_name, resolve_display_tool_name, tool_display_icon,
+    tool_output_looks_failed,
 };
 
 /// Whether the dimmed technical detail (command, path, args) should render

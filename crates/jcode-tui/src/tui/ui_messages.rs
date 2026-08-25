@@ -536,6 +536,217 @@ fn render_agentgrep_output_body(content: &str, row_width: usize) -> Vec<Line<'st
     out
 }
 
+/// The meaningful arguments of a tool call rendered verbatim for the full
+/// request block (enabled via `display.tool_call_details`). Returns None for
+/// tools whose arguments are already visible elsewhere (todo cards, memory
+/// cards, diffs) or calls that have no parsed input yet.
+pub(super) fn tool_request_text(tc: &crate::message::ToolCall) -> Option<String> {
+    let input_empty = tc.input.as_object().is_none_or(|object| object.is_empty());
+    if input_empty {
+        return None;
+    }
+    let get_str = |keys: &[&str]| -> Option<String> {
+        keys.iter().find_map(|key| {
+            tc.input
+                .get(*key)
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .filter(|value| !value.trim().is_empty())
+        })
+    };
+    let line_range_suffix = || {
+        let start = tc.input.get("start_line").and_then(|v| v.as_u64());
+        let end = tc.input.get("end_line").and_then(|v| v.as_u64());
+        let offset = tc.input.get("offset").and_then(|v| v.as_u64());
+        let limit = tc.input.get("limit").and_then(|v| v.as_u64());
+        if let (Some(start), Some(end)) = (start, end) {
+            Some(format!(":{start}-{end}"))
+        } else if let Some(start) = start {
+            Some(format!(":{start}-"))
+        } else if let Some(end) = end {
+            Some(format!(":1-{end}"))
+        } else if let (Some(offset), Some(limit)) = (offset, limit) {
+            Some(format!(":{}-{}", offset, offset + limit))
+        } else if let Some(offset) = offset {
+            Some(format!(":{offset}"))
+        } else {
+            None
+        }
+    };
+
+    let text = match tools_ui::canonical_tool_name(&tc.name) {
+        // Edit-family diffs are rendered by the diff pane/card; duplicating a
+        // huge patch body here would flood the transcript. Show the target
+        // file(s) in full instead.
+        "write" | "edit" => get_str(&["file_path"]),
+        "multiedit" => {
+            let path = get_str(&["file_path"]);
+            let count = tc
+                .input
+                .get("edits")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+            path.map(|path| format!("{path} ({} edits)", count))
+        }
+        "patch" | "apply_patch" => {
+            let from_patch = |extract: fn(&str) -> Option<String>| {
+                tc.input
+                    .get("patch_text")
+                    .and_then(|v| v.as_str())
+                    .and_then(extract)
+            };
+            let primary = match tools_ui::canonical_tool_name(&tc.name) {
+                "patch" => from_patch(tools_ui::extract_unified_patch_primary_file),
+                _ => from_patch(tools_ui::extract_apply_patch_primary_file),
+            };
+            primary
+                .or_else(|| get_str(&["file_path"]))
+                .map(|path| format!("{path} (see inline diff)"))
+        }
+        "bash" => get_str(&["command"]),
+        "read" => {
+            let path = get_str(&["file_path"]);
+            let suffix = line_range_suffix();
+            match (path, suffix) {
+                (Some(path), Some(suffix)) => Some(format!("{path}{suffix}")),
+                (Some(path), None) => Some(path),
+                _ => None,
+            }
+        }
+        "grep" | "agentgrep" => match (get_str(&["pattern"]), get_str(&["path"])) {
+            (Some(pattern), Some(path)) => Some(format!("{pattern} in {path}")),
+            (Some(pattern), None) => Some(pattern),
+            _ => None,
+        },
+        "glob" => get_str(&["pattern"]),
+        "webfetch" => get_str(&["url"]),
+        "websearch" => get_str(&["query"]),
+        "subagent" | "swarm" => get_str(&["label", "prompt", "message", "task"]),
+        "memory" | "remember" => get_str(&["content"]),
+        // Todo/memory/gmail results already render as dedicated cards.
+        "todo" => None,
+        _ => {
+            // Generic MCP/unknown tools: render every top-level scalar field
+            // as key=value pairs so the call is fully inspectable.
+            let mut parts: Vec<String> = Vec::new();
+            if let Some(object) = tc.input.as_object() {
+                for (key, value) in object {
+                    match value {
+                        serde_json::Value::String(value) => {
+                            parts.push(format!("{key}={value}"));
+                        }
+                        serde_json::Value::Number(value) => {
+                            parts.push(format!("{key}={value}"));
+                        }
+                        serde_json::Value::Bool(value) => {
+                            parts.push(format!("{key}={value}"));
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            (!parts.is_empty()).then_some(parts.join(" "))
+        }
+    };
+    text.filter(|text| !text.trim().is_empty())
+}
+
+/// Full tool-request block shown when `display.tool_call_details` is on.
+/// Unlike the inline summary this never ellipsis-truncates: long arguments
+/// hard-wrap onto as many indented lines as needed (with a generous absolute
+/// cap so a pathological payload cannot flood the transcript).
+fn render_tool_request_block(tc: &crate::message::ToolCall, row_width: usize) -> Vec<Line<'static>> {
+    const INDENT: &str = "    ";
+    const MAX_BLOCK_LINES: usize = 60;
+    let border = format!("{INDENT}│ ");
+    let avail = row_width
+        .saturating_sub(UnicodeWidthStr::width(border.as_str()))
+        .max(1);
+
+    let Some(text) = tool_request_text(tc) else {
+        return Vec::new();
+    };
+
+    let mut out: Vec<Line<'static>> = Vec::new();
+    let source_lines: Vec<&str> = text.split('\n').collect();
+    let total_wrapped = source_lines
+        .iter()
+        .map(|line| split_by_display_width(line, avail).len().max(1))
+        .sum::<usize>();
+    'outer: for raw_line in source_lines {
+        let chunks = split_by_display_width(raw_line.trim_end_matches('\r'), avail);
+        let chunks: Vec<String> = if chunks.is_empty() {
+            vec![String::new()]
+        } else {
+            chunks
+        };
+        for chunk in chunks {
+            if out.len() >= MAX_BLOCK_LINES {
+                let remaining = total_wrapped.saturating_sub(out.len());
+                out.push(Line::from(Span::styled(
+                    format!("{border}… {} more lines", remaining),
+                    Style::default().fg(dim_color()),
+                )));
+                break 'outer;
+            }
+            out.push(Line::from(Span::styled(
+                format!("{border}{chunk}"),
+                Style::default().fg(dim_color()),
+            )));
+        }
+    }
+    out
+}
+
+/// Output-tail lines beneath a completed tool row. Failures get a deeper tail
+/// (8 lines vs 3) so the actual error text is visible without expanding.
+fn render_tool_output_tail(
+    content: &str,
+    row_width: usize,
+    is_error: bool,
+) -> Vec<Line<'static>> {
+    const TAIL_SUCCESS: usize = 3;
+    const TAIL_FAILURE: usize = 8;
+    let max_lines = if is_error { TAIL_FAILURE } else { TAIL_SUCCESS };
+    let border = "    │ ";
+    let avail = row_width
+        .saturating_sub(UnicodeWidthStr::width(border))
+        .max(1);
+
+    let output_lines: Vec<&str> = content
+        .lines()
+        .map(|line| line.trim_end_matches('\r'))
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    if output_lines.is_empty() {
+        return Vec::new();
+    }
+
+    let total = output_lines.len();
+    let mut out: Vec<Line<'static>> = Vec::new();
+    for raw_line in output_lines.iter().rev().take(max_lines).rev() {
+        for (idx, chunk) in split_by_display_width(raw_line, avail).into_iter().enumerate() {
+            let prefix = if idx == 0 { border } else { "      " };
+            out.push(Line::from(Span::styled(
+                format!("{prefix}{chunk}"),
+                Style::default().fg(if is_error {
+                    rgb(220, 120, 120)
+                } else {
+                    dim_color()
+                }),
+            )));
+        }
+    }
+    if total > max_lines {
+        out.push(Line::from(Span::styled(
+            format!("{border}… {} more lines (Alt+o expands)", total - max_lines),
+            Style::default().fg(dim_color()),
+        )));
+    }
+    out
+}
+
 pub(crate) fn render_system_message(
     msg: &DisplayMessage,
     width: u16,
@@ -4019,6 +4230,7 @@ pub(crate) fn render_tool_message(
     };
     let row_width = block_width.saturating_sub(1);
     let display_name = tools_ui::resolve_display_tool_name(&tc.name).to_string();
+    let tool_icon = tools_ui::tool_display_icon(&tc.name);
     let base_prefix = format!("  {} {} ", icon, display_name);
     let token_suffix_width =
         UnicodeWidthStr::width(format!(" · {}", token_badge.label.as_str()).as_str());
@@ -4076,6 +4288,7 @@ pub(crate) fn render_tool_message(
 
     let mut tool_line = vec![
         Span::styled(format!("  {} ", icon), Style::default().fg(icon_color)),
+        Span::styled(format!("{} ", tool_icon), Style::default().fg(tool_color())),
         Span::styled(display_name, Style::default().fg(tool_color())),
     ];
     if let Some(intent) = intent {
@@ -4122,10 +4335,35 @@ pub(crate) fn render_tool_message(
     );
     let rendered_tool_line_text = super::line_plain_text(&rendered_tool_line);
     lines.push(rendered_tool_line);
-    if let Some(draft_lines) = render_gmail_draft_card(tc, &msg.content, is_error, row_width) {
+
+    // Full request block (display.tool_call_details on): the tool's arguments
+    // verbatim, hard-wrapped over multiple lines instead of ellipsis-truncated.
+    if tools_ui::show_tool_call_details() {
+        for line in render_tool_request_block(tc, row_width) {
+            lines.push(line);
+        }
+    }
+
+    let draft_lines = render_gmail_draft_card(tc, &msg.content, is_error, row_width);
+    let discovery_lines = render_discovery_card(tc, &msg.content, is_error, row_width);
+
+    // Output tail (display.tool_call_details on): last few output lines under
+    // the row. Failed bash commands always get a deeper tail so the real error
+    // text shows even when the user keeps previews off.
+    let has_dedicated_body = draft_lines.is_some() || discovery_lines.is_some();
+    if !has_dedicated_body && !msg.content.trim().is_empty() {
+        let show_tail = tools_ui::show_tool_call_details()
+            || (is_error && tools_ui::canonical_tool_name(&tc.name) == "bash");
+        if show_tail {
+            for line in render_tool_output_tail(&msg.content, row_width, is_error) {
+                lines.push(line);
+            }
+        }
+    }
+    if let Some(draft_lines) = draft_lines {
         lines.extend(draft_lines);
     }
-    if let Some(discovery_lines) = render_discovery_card(tc, &msg.content, is_error, row_width) {
+    if let Some(discovery_lines) = discovery_lines {
         lines.extend(discovery_lines);
     }
 
