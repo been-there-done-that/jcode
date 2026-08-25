@@ -130,8 +130,8 @@ case "$OS" in
       done
     fi
     case "$WINDOWS_ARCH" in
-      x86_64) ARTIFACT="jcode-windows-x86_64" ;;
-      aarch64) ARTIFACT="jcode-windows-aarch64" ;;
+      x86_64) ARTIFACT="rcode-windows-x86_64" ;;
+      aarch64) ARTIFACT="rcode-windows-aarch64" ;;
       *) err "Unsupported Windows architecture: $ARCH" ;;
     esac
     ;;
@@ -265,8 +265,8 @@ bin_name="rcode${EXE}"
 
 if [ "$download_mode" = "tar" ]; then
   tar xzf "$tmpdir/jcode.download" -C "$tmpdir"
-  src_bin="$tmpdir/${ARTIFACT}${EXE}"
-  [ -f "$src_bin" ] || err "Downloaded archive did not contain expected binary: ${ARTIFACT}${EXE}"
+  src_bin="$tmpdir/rcode${EXE}"
+  [ -f "$src_bin" ] || err "Downloaded archive did not contain expected binary: rcode${EXE}"
   find "$tmpdir" -maxdepth 1 -type f \( -name "${ARTIFACT}${EXE}.bin" -o -name 'libssl.so*' -o -name 'libcrypto.so*' \) \
     -exec cp -f {} "$dest_version_dir/" \;
   mv "$src_bin" "$dest_version_dir/$bin_name"
