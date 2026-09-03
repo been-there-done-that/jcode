@@ -3173,23 +3173,23 @@ fn render_tool_message_batch_subcall_shows_swarm_dm_details() {
 #[test]
 fn render_agentgrep_output_body_borders_each_line() {
     let content = "crates/foo.rs\n  symbols: 1 matched\n    - fn bar @ 1-5";
-    let lines = super::render_agentgrep_output_body(content, 120);
+    let lines = super::render_agentgrep_output_body(content, 120, "🔌");
     let rendered = lines
         .iter()
         .map(extract_line_text)
         .collect::<Vec<_>>()
         .join("\n");
 
-    assert!(rendered.contains("│ crates/foo.rs"), "rendered={rendered}");
+    assert!(rendered.contains("🔌 crates/foo.rs"), "rendered={rendered}");
     assert!(
-        rendered.contains("│   symbols: 1 matched"),
+        rendered.contains("  symbols: 1 matched"),
         "rendered={rendered}"
     );
     assert!(
-        rendered.contains("│     - fn bar @ 1-5"),
+        rendered.contains("    - fn bar @ 1-5"),
         "rendered={rendered}"
     );
-    assert_eq!(lines.len(), 3, "one bordered line per source line");
+    assert_eq!(lines.len(), 3, "one line per source line");
 }
 
 #[test]
@@ -3198,7 +3198,7 @@ fn render_agentgrep_output_body_caps_huge_output() {
         .map(|i| format!("line {i}"))
         .collect::<Vec<_>>()
         .join("\n");
-    let lines = super::render_agentgrep_output_body(&content, 120);
+    let lines = super::render_agentgrep_output_body(&content, 120, "🔌");
     // 400-line cap plus a single truncation summary line.
     assert_eq!(lines.len(), 401, "should cap the body and add a summary");
     let last = extract_line_text(&lines[lines.len() - 1]);
@@ -3358,7 +3358,7 @@ fn acceptance_gh_workflow_scenario_renders_icons_full_command_and_tail() {
     // The inline summary is still width-truncated on the row; the request
     // block below carries the full verbatim command. No ellipsis in the block.
     assert!(
-        plain.contains("│ gh run view 32839606591"),
+        plain.contains("$ gh run view 32839606591"),
         "request block missing full command: {plain}"
     );
     // output tail shows the result body
@@ -3401,5 +3401,5 @@ fn acceptance_failure_shows_deep_red_tail_even_with_previews_off() {
     // 8-line failure tail despite previews off: 7 raw error lines + exit line
     let error_lines = plain.lines().filter(|l| l.contains("error[")).count();
     assert_eq!(error_lines, 7, "expected 7 error lines in tail: {plain}");
-    assert!(plain.lines().any(|l| l.contains("│ Exit code: 101")));
+    assert!(plain.lines().any(|l| l.contains("$ Exit code: 101")));
 }

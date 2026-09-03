@@ -481,13 +481,21 @@ fn render_plaintext_lines(content: &str, wrap_width: usize) -> Vec<Line<'static>
 }
 
 /// Render the full agentgrep tool output inline beneath the tool summary line.
-/// Each output line is prefixed with a dim left border and indented so it reads
-/// as a nested block. Long lines are hard-split to the available width and the
+/// Each output line is prefixed with the tool icon and indented so it reads as
+/// a nested block. Long lines are hard-split to the available width and the
 /// block is capped so a giant search result cannot flood the transcript.
-fn render_agentgrep_output_body(content: &str, row_width: usize) -> Vec<Line<'static>> {
+fn render_agentgrep_output_body(
+    content: &str,
+    row_width: usize,
+    tool_icon: &str,
+) -> Vec<Line<'static>> {
     const MAX_BODY_LINES: usize = 400;
-    let border = "    │ ";
-    let border_width = UnicodeWidthStr::width(border);
+    let border = "    ";
+    let icon_prefix = format!("{} ", tool_icon);
+    let icon_prefix_width = UnicodeWidthStr::width(icon_prefix.as_str());
+    let first_prefix = format!("{border}{icon_prefix}");
+    let cont_indent = format!("{}{}", border, " ".repeat(icon_prefix_width));
+    let border_width = UnicodeWidthStr::width(border) + icon_prefix_width;
     let avail = row_width.saturating_sub(border_width).max(1);
 
     let mut out: Vec<Line<'static>> = Vec::new();
@@ -503,23 +511,28 @@ fn render_agentgrep_output_body(content: &str, row_width: usize) -> Vec<Line<'st
         let raw_line = raw_line.trim_end_matches('\r');
         if raw_line.is_empty() {
             out.push(Line::from(Span::styled(
-                border.to_string(),
+                cont_indent.to_string(),
                 Style::default().fg(dim_color()),
             )));
             continue;
         }
         if UnicodeWidthStr::width(raw_line) <= avail {
             out.push(Line::from(vec![
-                Span::styled(border.to_string(), Style::default().fg(dim_color())),
+                Span::styled(first_prefix.to_string(), Style::default().fg(dim_color())),
                 Span::styled(raw_line.to_string(), Style::default().fg(dim_color())),
             ]));
         } else {
-            for chunk in split_by_display_width(raw_line, avail) {
+            for (idx, chunk) in split_by_display_width(raw_line, avail).into_iter().enumerate() {
                 if out.len() >= MAX_BODY_LINES {
                     break;
                 }
+                let prefix = if idx == 0 {
+                    first_prefix.to_string()
+                } else {
+                    cont_indent.to_string()
+                };
                 out.push(Line::from(vec![
-                    Span::styled(border.to_string(), Style::default().fg(dim_color())),
+                    Span::styled(prefix, Style::default().fg(dim_color())),
                     Span::styled(chunk, Style::default().fg(dim_color())),
                 ]));
             }
@@ -528,7 +541,7 @@ fn render_agentgrep_output_body(content: &str, row_width: usize) -> Vec<Line<'st
 
     if truncated_extra > 0 {
         out.push(Line::from(Span::styled(
-            format!("    │ … {} more lines …", truncated_extra),
+            format!("{}… {} more lines …", cont_indent, truncated_extra),
             Style::default().fg(dim_color()),
         )));
     }
@@ -656,17 +669,26 @@ pub(super) fn tool_request_text(tc: &crate::message::ToolCall) -> Option<String>
 /// Unlike the inline summary this never ellipsis-truncates: long arguments
 /// hard-wrap onto as many indented lines as needed (with a generous absolute
 /// cap so a pathological payload cannot flood the transcript).
-fn render_tool_request_block(tc: &crate::message::ToolCall, row_width: usize) -> Vec<Line<'static>> {
+fn render_tool_request_block(
+    tc: &crate::message::ToolCall,
+    row_width: usize,
+    tool_icon: &str,
+) -> Vec<Line<'static>> {
     const INDENT: &str = "    ";
     const MAX_BLOCK_LINES: usize = 60;
-    let border = format!("{INDENT}│ ");
+    let border = INDENT;
     let avail = row_width
-        .saturating_sub(UnicodeWidthStr::width(border.as_str()))
+        .saturating_sub(UnicodeWidthStr::width(border))
+        .saturating_sub(UnicodeWidthStr::width(format!("{} ", tool_icon).as_str()))
         .max(1);
 
     let Some(text) = tool_request_text(tc) else {
         return Vec::new();
     };
+
+    let icon_prefix = format!("{} ", tool_icon);
+    let icon_prefix_width = UnicodeWidthStr::width(icon_prefix.as_str());
+    let cont_indent = format!("{}{}", border, " ".repeat(icon_prefix_width));
 
     let mut out: Vec<Line<'static>> = Vec::new();
     let source_lines: Vec<&str> = text.split('\n').collect();
@@ -681,17 +703,22 @@ fn render_tool_request_block(tc: &crate::message::ToolCall, row_width: usize) ->
         } else {
             chunks
         };
-        for chunk in chunks {
+        for (idx, chunk) in chunks.iter().enumerate() {
             if out.len() >= MAX_BLOCK_LINES {
                 let remaining = total_wrapped.saturating_sub(out.len());
                 out.push(Line::from(Span::styled(
-                    format!("{border}… {} more lines", remaining),
+                    format!("{cont_indent}… {} more lines", remaining),
                     Style::default().fg(dim_color()),
                 )));
                 break 'outer;
             }
+            let prefix = if idx == 0 {
+                format!("{border}{icon_prefix}")
+            } else {
+                cont_indent.clone()
+            };
             out.push(Line::from(Span::styled(
-                format!("{border}{chunk}"),
+                format!("{prefix}{chunk}"),
                 Style::default().fg(dim_color()),
             )));
         }
@@ -705,13 +732,18 @@ fn render_tool_output_tail(
     content: &str,
     row_width: usize,
     is_error: bool,
+    tool_icon: &str,
 ) -> Vec<Line<'static>> {
     const TAIL_SUCCESS: usize = 3;
     const TAIL_FAILURE: usize = 8;
     let max_lines = if is_error { TAIL_FAILURE } else { TAIL_SUCCESS };
-    let border = "    │ ";
+    let border = "    ";
+    let icon_prefix = format!("{} ", tool_icon);
+    let icon_prefix_width = UnicodeWidthStr::width(icon_prefix.as_str());
+    let cont_indent = format!("{}{}", border, " ".repeat(icon_prefix_width));
     let avail = row_width
         .saturating_sub(UnicodeWidthStr::width(border))
+        .saturating_sub(icon_prefix_width)
         .max(1);
 
     let output_lines: Vec<&str> = content
@@ -727,7 +759,11 @@ fn render_tool_output_tail(
     let mut out: Vec<Line<'static>> = Vec::new();
     for raw_line in output_lines.iter().rev().take(max_lines).rev() {
         for (idx, chunk) in split_by_display_width(raw_line, avail).into_iter().enumerate() {
-            let prefix = if idx == 0 { border } else { "      " };
+            let prefix = if idx == 0 {
+                format!("{border}{icon_prefix}")
+            } else {
+                cont_indent.clone()
+            };
             out.push(Line::from(Span::styled(
                 format!("{prefix}{chunk}"),
                 Style::default().fg(if is_error {
@@ -740,7 +776,7 @@ fn render_tool_output_tail(
     }
     if total > max_lines {
         out.push(Line::from(Span::styled(
-            format!("{border}… {} more lines (Alt+o expands)", total - max_lines),
+            format!("{cont_indent}… {} more lines (Alt+o expands)", total - max_lines),
             Style::default().fg(dim_color()),
         )));
     }
@@ -4339,7 +4375,7 @@ pub(crate) fn render_tool_message(
     // Full request block (display.tool_call_details on): the tool's arguments
     // verbatim, hard-wrapped over multiple lines instead of ellipsis-truncated.
     if tools_ui::show_tool_call_details() {
-        for line in render_tool_request_block(tc, row_width) {
+        for line in render_tool_request_block(tc, row_width, tool_icon) {
             lines.push(line);
         }
     }
@@ -4355,7 +4391,7 @@ pub(crate) fn render_tool_message(
         let show_tail = tools_ui::show_tool_call_details()
             || (is_error && tools_ui::canonical_tool_name(&tc.name) == "bash");
         if show_tail {
-            for line in render_tool_output_tail(&msg.content, row_width, is_error) {
+            for line in render_tool_output_tail(&msg.content, row_width, is_error, tool_icon) {
                 lines.push(line);
             }
         }
@@ -4374,7 +4410,7 @@ pub(crate) fn render_tool_message(
         && crate::config::config().display.show_agentgrep_output
         && !msg.content.trim().is_empty()
     {
-        for line in render_agentgrep_output_body(&msg.content, row_width) {
+        for line in render_agentgrep_output_body(&msg.content, row_width, tool_icon) {
             lines.push(line);
         }
     }
