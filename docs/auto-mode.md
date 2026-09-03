@@ -90,6 +90,46 @@ If the classifier fails (e.g., API error), the system falls back to manual mode 
 
 The denial tracker monitors consecutive denials. After 3 consecutive denials or 20 total denials, the system may escalate to require manual confirmation.
 
+### Tool-Execution Gating (central gate)
+
+Auto Mode does not only evaluate the ambient `request_permission` tool. The AI
+classifier is consulted at the **central tool-execution seam** (`Registry::execute`)
+for every effectful tool call — `bash`, `write`, `edit`, `multiedit`, `patch`,
+`apply_patch`, `open`, `browser`, `webfetch`, `websearch`, `bg`, `gmail`,
+`selfdev`, `communicate`, `schedule`, and `request_permission`.
+
+This matters because prior to this change a `bash` tool call never consulted the
+classifier: a user instruction such as "talk to the DB using python, but don't
+run delete queries" would be ignored if a later turn emitted a destructive
+command. Now the classifier sees what the user actually asked.
+
+**Turn context.** Each agent turn builds a `TurnContext` from the live session
+transcript (`Agent::turn_context_for_classifier`): the last visible user message
+becomes `user_message`, and the recent visible history (user + assistant turns,
+excluding system reminders) becomes `recent_history`. The agent sets this on the
+`Registry` via `set_turn_context` after assembling the provider messages, so the
+gate evaluates every tool call against the current turn's intent.
+
+**History-aware fast filter.** Both classifier stages receive the conversation
+history. Stage 1 (the fast filter) previously only saw the immediate request and
+would stop at an `ALLOW` verdict — which meant a constraint stated *earlier* in
+the turn (not the latest user message) was invisible. Stage 1 now includes
+`recent_history`, so a prior "don't run delete queries" still gates a later
+destructive command.
+
+**Fail-closed.** When Auto Mode is active and the classifier blocks a tool call
+(or any classifier error occurs), the action is denied and never reaches the
+underlying tool. Read-only / informational tools (read, glob, grep, memory,
+...) skip the classifier entirely.
+
+```text
+# A destructive command is blocked even though it arrives via bash:
+Auto Mode blocked 'bash': DROP TABLE destroys data; the user explicitly said not to run delete queries
+# A benign command runs:
+ran:bash
+```
+
+
 ## Usage
 
 1. Edit `~/.jcode/config.toml` with the settings above
