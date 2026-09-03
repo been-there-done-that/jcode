@@ -86,6 +86,21 @@ impl Provider for OpenRouterProvider {
         let include_reasoning_content = include_reasoning_content && !strict_openai_schema;
         let allow_image_input = self.supports_image_input();
 
+        // OpenCode Zen serves some model families (Muse Spark, GPT-5/Codex,
+        // Grok) through the OpenAI Responses API only; the chat-completions
+        // endpoint 500s for them. Branch to the Responses dialect before any
+        // chat-specific shaping (cache breakpoints, chat tool wrappers).
+        if crate::zen_transport::zen_transport_for_model(
+            self.profile_id.as_deref(),
+            &self.api_base,
+            &model,
+        ) == crate::zen_transport::ZenTransport::Responses
+        {
+            return self
+                .complete_via_responses_api(model, messages, tools, system, reasoning_effort)
+                .await;
+        }
+
         let mut effective_messages: Vec<Message> = messages.to_vec();
         let cache_supported = self.model_supports_cache(&model).await;
         let cache_control_added = if cache_supported {
@@ -910,5 +925,103 @@ impl OpenRouterProvider {
         // `[[providers.<name>.models]]` entries must survive background
         // `/models` catalog refreshes (issue #579).
         self.supports_provider_features || self.profile_id.is_none() || self.is_user_named_profile()
+    }
+}
+
+impl OpenRouterProvider {
+    /// Streaming completion through the OpenAI Responses API.
+    ///
+    /// Used for Zen Responses-only model families (Muse Spark, GPT-5/Codex,
+    /// Grok) on the `opencode`/`opencode-go` profiles. Mirrors the
+    /// chat-completions `complete()` flow above: same auth, same retry
+    /// policy, same [`StreamEvent`] vocabulary — only the wire dialect
+    /// (endpoint, body, SSE events) differs.
+    async fn complete_via_responses_api(
+        &self,
+        model: String,
+        messages: &[Message],
+        tools: &[ToolDefinition],
+        system: &str,
+        reasoning_effort: Option<String>,
+    ) -> Result<EventStream> {
+        use super::openrouter_responses_stream::run_responses_stream_with_retries;
+        use crate::zen_transport::{
+            build_responses_input, build_responses_tools, responses_reasoning_effort,
+        };
+
+        let (instructions, input) = build_responses_input(messages, system);
+
+        let mut request = serde_json::json!({
+            "model": model,
+            "input": input,
+            "stream": true,
+        });
+        if let Some(instructions) = instructions {
+            request["instructions"] = serde_json::json!(instructions);
+        }
+        if let Some(effort) = responses_reasoning_effort(reasoning_effort.as_deref()) {
+            request["reasoning"] = serde_json::json!({ "effort": effort });
+        }
+        if let Some(max_tokens) = self.max_tokens {
+            request["max_output_tokens"] = serde_json::json!(max_tokens);
+        }
+
+        let api_tools = build_responses_tools(tools);
+        if !api_tools.is_empty() {
+            request["tools"] = serde_json::json!(api_tools);
+            request["tool_choice"] = serde_json::json!("auto");
+        }
+
+        // Same user-configured extra-body merge as the chat path.
+        if let Some(extra) = self.extra_body.as_ref()
+            && let Some(request_obj) = request.as_object_mut()
+        {
+            for (key, value) in extra {
+                request_obj.insert(key.clone(), value.clone());
+            }
+        }
+
+        jcode_provider_core::fingerprint::log_provider_canonical_input(
+            "openai-responses",
+            &model,
+            "responses",
+            &request,
+            &[],
+            None,
+            request.get("tools").cloned().as_ref(),
+            Some(api_tools.len()),
+            &[("transport", "responses".to_string())],
+        );
+
+        jcode_base::logging::info("OpenAI Responses transport: HTTPS (SSE)");
+
+        let (tx, rx) = mpsc::channel::<Result<StreamEvent>>(100);
+        let client = self.client.clone();
+        let api_base = self.api_base.clone();
+        let auth = self.auth.clone();
+        let model_for_stream = model.clone();
+
+        tokio::spawn(async move {
+            if tx
+                .send(Ok(StreamEvent::ConnectionType {
+                    connection: "https/sse".to_string(),
+                }))
+                .await
+                .is_err()
+            {
+                return;
+            }
+            run_responses_stream_with_retries(
+                client,
+                api_base,
+                auth,
+                request,
+                tx,
+                model_for_stream,
+            )
+            .await;
+        });
+
+        Ok(Box::pin(ReceiverStream::new(rx)))
     }
 }

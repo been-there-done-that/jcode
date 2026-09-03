@@ -2738,8 +2738,12 @@ mod models_catalog_parse;
 mod ollama_context;
 #[path = "openrouter_provider_impl.rs"]
 mod openrouter_provider_impl;
+#[path = "openrouter_responses_stream.rs"]
+mod openrouter_responses_stream;
 #[path = "openrouter_sse_stream.rs"]
 mod openrouter_sse_stream;
+#[path = "zen_transport.rs"]
+pub mod zen_transport;
 
 #[cfg(test)]
 #[allow(clippy::await_holding_lock)]

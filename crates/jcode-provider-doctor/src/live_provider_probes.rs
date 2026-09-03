@@ -163,6 +163,9 @@ pub async fn run_live_openai_compatible_smoke(
 ) -> anyhow::Result<jcode_base::live_tests::LiveVerificationStage> {
     let started = std::time::Instant::now();
     let resolved = jcode_base::provider_catalog::resolve_openai_compatible_profile(profile);
+    if uses_responses_transport(&resolved, profile.id, model) {
+        return run_live_responses_smoke(&resolved, api_key, model, started).await;
+    }
     let url = format!(
         "{}/chat/completions",
         resolved.api_base.trim_end_matches('/')
@@ -382,6 +385,9 @@ pub async fn run_live_openai_compatible_stream_smoke(
 ) -> anyhow::Result<jcode_base::live_tests::LiveVerificationStage> {
     let started = std::time::Instant::now();
     let resolved = jcode_base::provider_catalog::resolve_openai_compatible_profile(profile);
+    if uses_responses_transport(&resolved, profile.id, model) {
+        return run_live_responses_stream_smoke(&resolved, api_key, model, started).await;
+    }
     let url = format!(
         "{}/chat/completions",
         resolved.api_base.trim_end_matches('/')
@@ -477,6 +483,9 @@ pub async fn run_live_openai_compatible_tool_smoke(
 ) -> anyhow::Result<jcode_base::live_tests::LiveVerificationStage> {
     let started = std::time::Instant::now();
     let resolved = jcode_base::provider_catalog::resolve_openai_compatible_profile(profile);
+    if uses_responses_transport(&resolved, profile.id, model) {
+        return run_live_responses_tool_smoke(&resolved, api_key, model, started).await;
+    }
     let url = format!(
         "{}/chat/completions",
         resolved.api_base.trim_end_matches('/')
@@ -591,6 +600,309 @@ pub async fn run_live_openai_compatible_tool_smoke(
             .unwrap_or(serde_json::Value::Null),
     );
     for key in ["id", "model", "usage", "cost"] {
+        if let Some(value) = parsed.get(key) {
+            stage = stage.with_evidence(key, value.clone());
+        }
+    }
+    Ok(stage)
+}
+
+// ---------------------------------------------------------------------------
+// OpenAI Responses API probes (OpenCode Zen Responses-only models)
+// ---------------------------------------------------------------------------
+//
+// Zen serves some families (Muse Spark, GPT-5/Codex, Grok) through
+// `/responses` only; its `/chat/completions` endpoint 500s for them. These
+// probes speak the Responses dialect for exactly those models, reusing the
+// shared transport table so doctor and the runtime can never disagree about
+// which dialect a model needs.
+
+/// True when `model` on this profile must use the Responses API.
+fn uses_responses_transport(
+    resolved: &ResolvedOpenAiCompatibleProfile,
+    profile_id: &str,
+    model: &str,
+) -> bool {
+    use jcode_provider_openrouter_runtime::zen_transport::{ZenTransport, zen_transport_for_model};
+    zen_transport_for_model(Some(profile_id), &resolved.api_base, model) == ZenTransport::Responses
+}
+
+fn responses_url(resolved: &ResolvedOpenAiCompatibleProfile) -> String {
+    format!("{}/responses", resolved.api_base.trim_end_matches('/'))
+}
+
+/// Concatenate all `output_text` parts of a non-streaming Responses object.
+fn responses_output_text(parsed: &serde_json::Value) -> String {
+    let mut out = String::new();
+    if let Some(items) = parsed.get("output").and_then(|o| o.as_array()) {
+        for item in items {
+            if item.get("type").and_then(|t| t.as_str()) != Some("message") {
+                continue;
+            }
+            if let Some(parts) = item.get("content").and_then(|c| c.as_array()) {
+                for part in parts {
+                    if part.get("type").and_then(|t| t.as_str()) == Some("output_text")
+                        && let Some(text) = part.get("text").and_then(|t| t.as_str())
+                    {
+                        out.push_str(text);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+async fn run_live_responses_smoke(
+    resolved: &ResolvedOpenAiCompatibleProfile,
+    api_key: &str,
+    model: &str,
+    started: std::time::Instant,
+) -> anyhow::Result<jcode_base::live_tests::LiveVerificationStage> {
+    let url = responses_url(resolved);
+    // Reasoning models can burn hundreds of hidden tokens before emitting
+    // text; leave room so the probe tests completion, not truncation.
+    let body = serde_json::json!({
+        "model": model,
+        "input": "Reply with exactly AUTH_TEST_OK and nothing else.",
+        "stream": false,
+        "max_output_tokens": 1024
+    });
+    let request = jcode_base::provider::shared_http_client()
+        .post(&url)
+        .json(&body);
+    let request = apply_provider_auth(request, resolved, api_key);
+    let response = tokio::time::timeout(smoke_timeout(60), request.send())
+        .await
+        .context("timed out running live Responses smoke completion")?
+        .with_context(|| {
+            format!(
+                "run live {} Responses smoke completion",
+                resolved.display_name
+            )
+        })?;
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    ensure!(
+        status.is_success(),
+        "{} live Responses smoke failed (HTTP {}): {}",
+        resolved.display_name,
+        status,
+        text.trim()
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&text).with_context(|| {
+        format!(
+            "parse live {} Responses smoke response",
+            resolved.display_name
+        )
+    })?;
+    let content = responses_output_text(&parsed);
+    ensure!(
+        content.contains("AUTH_TEST_OK"),
+        "{} live Responses smoke returned unexpected content: {:?}",
+        resolved.display_name,
+        content
+    );
+    let mut stage = jcode_base::live_tests::LiveVerificationStage::passed(
+        jcode_base::live_tests::checkpoints::NON_STREAMING_CHAT_COMPLETION,
+    )
+    .with_duration_ms(started.elapsed().as_millis() as u64)
+    .with_evidence("http_status", serde_json::json!(status.as_u16()))
+    .with_evidence("transport", serde_json::json!("responses"))
+    .with_evidence("matched_expected_content", serde_json::json!(true));
+    for key in ["id", "model", "usage"] {
+        if let Some(value) = parsed.get(key) {
+            stage = stage.with_evidence(key, value.clone());
+        }
+    }
+    Ok(stage)
+}
+
+async fn run_live_responses_stream_smoke(
+    resolved: &ResolvedOpenAiCompatibleProfile,
+    api_key: &str,
+    model: &str,
+    started: std::time::Instant,
+) -> anyhow::Result<jcode_base::live_tests::LiveVerificationStage> {
+    let url = responses_url(resolved);
+    let body = serde_json::json!({
+        "model": model,
+        "input": "Reply with exactly STREAM_TEST_OK and nothing else.",
+        "stream": true,
+        "max_output_tokens": 1024
+    });
+    let request = jcode_base::provider::shared_http_client()
+        .post(&url)
+        .json(&body);
+    let request = apply_provider_auth(request, resolved, api_key);
+    let response = tokio::time::timeout(smoke_timeout(60), request.send())
+        .await
+        .context("timed out running live Responses stream smoke")?
+        .with_context(|| {
+            format!(
+                "run live {} Responses stream smoke completion",
+                resolved.display_name
+            )
+        })?;
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    ensure!(
+        status.is_success(),
+        "{} live Responses stream smoke failed (HTTP {}): {}",
+        resolved.display_name,
+        status,
+        text.trim()
+    );
+
+    let mut content = String::new();
+    let mut chunk_count = 0usize;
+    let mut usage = serde_json::Value::Null;
+    for line in text.lines() {
+        let Some(data) = line.trim().strip_prefix("data:") else {
+            continue;
+        };
+        let data = data.trim();
+        if data == "[DONE]" || data.is_empty() {
+            continue;
+        }
+        let parsed: serde_json::Value = serde_json::from_str(data)
+            .with_context(|| format!("parse live {} Responses chunk", resolved.display_name))?;
+        chunk_count += 1;
+        if parsed.get("type").and_then(|t| t.as_str()) == Some("response.completed")
+            && let Some(reported) = parsed
+                .get("response")
+                .and_then(|r| r.get("usage"))
+                .filter(|u| !u.is_null())
+        {
+            usage = reported.clone();
+        }
+        if parsed.get("type").and_then(|t| t.as_str()) == Some("response.output_text.delta")
+            && let Some(part) = parsed.get("delta").and_then(|d| d.as_str())
+        {
+            content.push_str(part);
+        }
+    }
+    ensure!(
+        content.contains("STREAM_TEST_OK"),
+        "{} live Responses stream smoke returned unexpected content: {:?}",
+        resolved.display_name,
+        content
+    );
+    let mut stage = jcode_base::live_tests::LiveVerificationStage::passed(
+        jcode_base::live_tests::checkpoints::STREAMING_CHAT_COMPLETION,
+    )
+    .with_duration_ms(started.elapsed().as_millis() as u64)
+    .with_evidence("http_status", serde_json::json!(status.as_u16()))
+    .with_evidence("transport", serde_json::json!("responses"))
+    .with_evidence("chunk_count", serde_json::json!(chunk_count))
+    .with_evidence("matched_expected_content", serde_json::json!(true));
+    if !usage.is_null() {
+        stage = stage.with_evidence("usage", usage);
+    }
+    Ok(stage)
+}
+
+async fn run_live_responses_tool_smoke(
+    resolved: &ResolvedOpenAiCompatibleProfile,
+    api_key: &str,
+    model: &str,
+    started: std::time::Instant,
+) -> anyhow::Result<jcode_base::live_tests::LiveVerificationStage> {
+    let url = responses_url(resolved);
+    let tool_name = "auth_tool_probe";
+    let body = serde_json::json!({
+        "model": model,
+        "input": "Call the auth_tool_probe tool now. Do not answer in text.",
+        "tools": [
+            {
+                "type": "function",
+                "name": tool_name,
+                "description": "A no-op live auth/tool-call smoke-test tool.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": false
+                }
+            }
+        ],
+        "tool_choice": "auto",
+        "stream": false,
+        "max_output_tokens": 1024
+    });
+    let request = jcode_base::provider::shared_http_client()
+        .post(&url)
+        .json(&body);
+    let request = apply_provider_auth(request, resolved, api_key);
+    let response = tokio::time::timeout(smoke_timeout(60), request.send())
+        .await
+        .context("timed out running live Responses tool-call smoke")?
+        .with_context(|| {
+            format!(
+                "run live {} Responses tool-call smoke",
+                resolved.display_name
+            )
+        })?;
+    let status = response.status();
+    let text = response.text().await.unwrap_or_default();
+    ensure!(
+        status.is_success(),
+        "{} live Responses tool-call smoke failed (HTTP {}): {}",
+        resolved.display_name,
+        status,
+        text.trim()
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&text).with_context(|| {
+        format!(
+            "parse live {} Responses tool-call smoke response",
+            resolved.display_name
+        )
+    })?;
+    let calls: Vec<&serde_json::Value> = parsed
+        .get("output")
+        .and_then(|o| o.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter(|item| item.get("type").and_then(|t| t.as_str()) == Some("function_call"))
+                .collect()
+        })
+        .unwrap_or_default();
+    ensure!(
+        !calls.is_empty(),
+        "{} live Responses tool-call smoke returned no function calls: {}",
+        resolved.display_name,
+        jcode_base::util::truncate_str(text.trim(), 1200)
+    );
+    let returned_name = calls[0]
+        .get("name")
+        .and_then(|n| n.as_str())
+        .unwrap_or_default();
+    ensure!(
+        returned_name == tool_name,
+        "{} live Responses tool-call smoke returned unexpected tool name {:?}",
+        resolved.display_name,
+        returned_name
+    );
+    let arguments = calls[0]
+        .get("arguments")
+        .and_then(|a| a.as_str())
+        .context("live Responses tool-call smoke response missing string arguments")?;
+    let parsed_arguments = jcode_base::message::ToolCall::parse_streamed_input_to_object(arguments);
+    ensure!(
+        parsed_arguments.is_object(),
+        "{} live Responses tool-call smoke returned non-object tool arguments: {:?}",
+        resolved.display_name,
+        arguments
+    );
+    let mut stage = jcode_base::live_tests::LiveVerificationStage::passed(
+        jcode_base::live_tests::checkpoints::TOOL_CALL_PARSE,
+    )
+    .with_duration_ms(started.elapsed().as_millis() as u64)
+    .with_evidence("http_status", serde_json::json!(status.as_u16()))
+    .with_evidence("transport", serde_json::json!("responses"))
+    .with_evidence("tool_name", serde_json::json!(returned_name))
+    .with_evidence("tool_arguments", parsed_arguments);
+    for key in ["id", "model", "usage"] {
         if let Some(value) = parsed.get(key) {
             stage = stage.with_evidence(key, value.clone());
         }
