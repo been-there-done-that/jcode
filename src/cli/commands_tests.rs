@@ -11,6 +11,67 @@ use std::sync::Arc;
 use tokio::sync::mpsc as tokio_mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
+#[test]
+fn memory_cli_project_import_uses_explicit_directory_and_persists() {
+    let _guard = crate::storage::lock_test_env();
+    let _saved = SavedEnv::capture(&["JCODE_HOME"]);
+    let temp = tempfile::tempdir().expect("temp dir");
+    crate::env::set_var("JCODE_HOME", temp.path().join("home"));
+    let project = temp.path().join("project");
+    std::fs::create_dir_all(&project).expect("create project");
+
+    let entry = crate::memory::MemoryEntry::new(
+        crate::memory::MemoryCategory::Fact,
+        "persisted project memory".to_string(),
+    );
+    let input = temp.path().join("memories.json");
+    std::fs::write(
+        &input,
+        serde_json::to_vec(&vec![entry.clone()]).expect("serialize memory"),
+    )
+    .expect("write import");
+
+    run_memory_command_for_dir(
+        MemorySubcommand::Import {
+            input: input.display().to_string(),
+            scope: "project".to_string(),
+            overwrite: false,
+        },
+        Some(project.clone()),
+    )
+    .expect("import project memory");
+
+    let reloaded = crate::memory::MemoryManager::new()
+        .with_project_dir(project)
+        .load_project_graph()
+        .expect("reload project graph");
+    assert_eq!(
+        reloaded
+            .get_memory(&entry.id)
+            .map(|memory| memory.content.as_str()),
+        Some("persisted project memory")
+    );
+}
+
+#[test]
+fn memory_cli_project_import_fails_without_durable_project_store() {
+    let temp = tempfile::tempdir().expect("temp dir");
+    let input = temp.path().join("memories.json");
+    std::fs::write(&input, "[]").expect("write import");
+
+    let error = run_memory_command_for_dir(
+        MemorySubcommand::Import {
+            input: input.display().to_string(),
+            scope: "project".to_string(),
+            overwrite: false,
+        },
+        None,
+    )
+    .expect_err("project import must require a durable store");
+
+    assert!(error.to_string().contains("without a project directory"));
+}
+
 struct SavedEnv {
     vars: Vec<(String, Option<String>)>,
 }
@@ -1080,6 +1141,18 @@ fn auth_test_retryable_error_detection_handles_rate_limits() {
 }
 
 #[test]
+fn auth_test_retryable_error_detection_rejects_hard_usage_limit_exhaustion() {
+    // Regression for #1148: the text contains "rate limit" but the quota
+    // resets in weeks, so retrying is pointless.
+    let err = anyhow::anyhow!(
+        "Rate limited: The usage limit has been reached. Plan: free. Resets in 28d 19h 47m (2026-09-30 18:44 UTC)."
+    );
+    assert!(!auth_test_error_is_retryable(&err));
+    let err = anyhow::anyhow!("OpenAI request failed (HTTP 429): insufficient_quota");
+    assert!(!auth_test_error_is_retryable(&err));
+}
+
+#[test]
 fn auth_test_retryable_error_detection_rejects_schema_errors() {
     let err = anyhow::anyhow!(
         "Gemini request generateContent failed (HTTP 400 Bad Request): invalid argument"
@@ -1266,6 +1339,18 @@ fn list_cli_providers_includes_auto_and_openai() {
     }));
     assert!(providers.iter().any(|provider| provider.id == "groq"));
     assert!(providers.iter().any(|provider| provider.id == "xai"));
+}
+
+#[test]
+fn list_cli_providers_includes_conifer() {
+    let providers = super::report_info::list_cli_providers();
+    let conifer = providers
+        .iter()
+        .find(|provider| provider.id == "conifer")
+        .expect("Conifer should be discoverable through `provider list`");
+
+    assert_eq!(conifer.display_name, "Conifer");
+    assert_eq!(conifer.auth_kind.as_deref(), Some("API key"));
 }
 
 #[test]

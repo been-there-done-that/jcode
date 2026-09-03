@@ -327,6 +327,7 @@ pub enum CrossProviderFailoverMode {
     #[default]
     Countdown,
     /// Do not resend the prompt to another provider automatically.
+    #[serde(alias = "off", alias = "false", alias = "disabled", alias = "none")]
     Manual,
 }
 
@@ -340,7 +341,7 @@ impl CrossProviderFailoverMode {
 
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
-            "manual" => Some(Self::Manual),
+            "manual" | "off" | "false" | "disabled" | "none" => Some(Self::Manual),
             "countdown" | "auto" | "automatic" => Some(Self::Countdown),
             _ => None,
         }
@@ -413,9 +414,12 @@ pub enum NamedProviderType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum NamedProviderAuth {
+    #[serde(alias = "Bearer", alias = "BEARER")]
     #[default]
     Bearer,
+    #[serde(alias = "Header", alias = "HEADER")]
     Header,
+    #[serde(alias = "None", alias = "NONE")]
     None,
 }
 
@@ -423,6 +427,18 @@ pub enum NamedProviderAuth {
 #[serde(default)]
 pub struct NamedProviderModelConfig {
     pub id: String,
+    /// Explicitly enable or disable `/effort` for this model. When omitted,
+    /// the provider-level setting and built-in model-family detection apply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<bool>,
+    /// Reasoning effort selected when this model becomes active. This overrides
+    /// `[provider].openai_reasoning_effort` for this model only.
+    #[serde(
+        default,
+        alias = "reasoning-effort",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub reasoning_effort: Option<String>,
     #[serde(
         default,
         alias = "context_limit",
@@ -480,6 +496,10 @@ pub struct NamedProviderConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub supports_reasoning_effort: Option<bool>,
+    /// Disable model-name based reasoning detection for this profile. Explicit
+    /// provider/model capability settings continue to work.
+    #[serde(default, alias = "disable-reasoning-heuristics")]
+    pub disable_reasoning_heuristics: bool,
 }
 
 impl Default for NamedProviderConfig {
@@ -502,6 +522,7 @@ impl Default for NamedProviderConfig {
             models: Vec::new(),
             extra_body: None,
             supports_reasoning_effort: None,
+            disable_reasoning_heuristics: false,
         }
     }
 }
@@ -528,6 +549,11 @@ pub struct AgentsConfig {
     /// string only when you deliberately want every swarm worker pinned to a
     /// specific model regardless of which model spawned them.
     pub swarm_model: Option<String>,
+    /// Optional default reasoning effort for spawned swarm/subagent sessions
+    /// (`"low"`, `"medium"`, `"high"`, ...). Applied when a `swarm spawn`
+    /// call does not pass an explicit `effort`. Leave unset to let workers
+    /// inherit the provider-wide reasoning effort.
+    pub swarm_effort: Option<String>,
     /// Default terminal mode for swarm-created agents.
     pub swarm_spawn_mode: SwarmSpawnMode,
     /// Maximum percentage (1-90) of the chat column height the inline swarm
@@ -629,6 +655,7 @@ impl Default for AgentsConfig {
     fn default() -> Self {
         Self {
             swarm_model: None,
+            swarm_effort: None,
             swarm_spawn_mode: SwarmSpawnMode::default(),
             swarm_gallery_max_pct: None,
             swarm_strip_layout: SwarmStripLayout::default(),

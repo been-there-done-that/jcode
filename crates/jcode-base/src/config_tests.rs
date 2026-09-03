@@ -227,6 +227,51 @@ fn test_env_override_swarm_model() {
 }
 
 #[test]
+fn swarm_effort_parses_from_toml_and_env_override() {
+    let _guard = crate::storage::lock_test_env();
+    let prev = std::env::var_os("JCODE_SWARM_EFFORT");
+    restore_env_var("JCODE_SWARM_EFFORT", None);
+
+    // Public config-file interface (#1165).
+    let cfg: Config =
+        toml::from_str("[agents]\nswarm_model = \"claude-opus-5\"\nswarm_effort = \"medium\"\n")
+            .expect("config with swarm_effort parses");
+    assert_eq!(cfg.agents.swarm_effort.as_deref(), Some("medium"));
+    assert_eq!(Config::default().agents.swarm_effort, None);
+
+    crate::env::set_var("JCODE_SWARM_EFFORT", "low");
+    let mut cfg = Config::default();
+    cfg.apply_env_overrides();
+    assert_eq!(cfg.agents.swarm_effort.as_deref(), Some("low"));
+
+    crate::env::set_var("JCODE_SWARM_EFFORT", " ");
+    let mut cfg = Config::default();
+    cfg.agents.swarm_effort = Some("preset".to_string());
+    cfg.apply_env_overrides();
+    assert_eq!(cfg.agents.swarm_effort, None);
+
+    restore_env_var("JCODE_SWARM_EFFORT", prev);
+}
+
+#[test]
+fn wake_mode_defaults_parses_and_env_overrides() {
+    let _guard = crate::storage::lock_test_env();
+    let prev = std::env::var_os("JCODE_WAKE_MODE");
+    assert_eq!(
+        Config::default().server.wake_mode,
+        crate::config::WakeMode::Internal
+    );
+    let parsed: Config = toml::from_str("[server]\nwake_mode = \"external\"\n").unwrap();
+    assert_eq!(parsed.server.wake_mode, crate::config::WakeMode::External);
+
+    crate::env::set_var("JCODE_WAKE_MODE", "external");
+    let mut cfg = Config::default();
+    cfg.apply_env_overrides();
+    assert_eq!(cfg.server.wake_mode, crate::config::WakeMode::External);
+    restore_env_var("JCODE_WAKE_MODE", prev);
+}
+
+#[test]
 fn spawn_hook_defaults_to_none_and_parses_from_toml() {
     assert_eq!(Config::default().terminal.spawn_hook, None);
 
@@ -822,6 +867,24 @@ fn test_provider_failover_defaults_match_new_behavior() {
 }
 
 #[test]
+fn test_provider_failover_disabled_aliases_parse_as_manual() {
+    for value in ["off", "false", "disabled", "none"] {
+        let cfg: Config = toml::from_str(&format!(
+            "[provider]\ncross_provider_failover = \"{value}\"\n"
+        ))
+        .unwrap_or_else(|error| panic!("{value} should parse: {error}"));
+        assert_eq!(
+            cfg.provider.cross_provider_failover,
+            super::CrossProviderFailoverMode::Manual
+        );
+        assert_eq!(
+            super::CrossProviderFailoverMode::parse(value),
+            Some(super::CrossProviderFailoverMode::Manual)
+        );
+    }
+}
+
+#[test]
 fn test_native_scrollbars_default_to_enabled() {
     let display = DisplayConfig::default();
     assert!(display.native_scrollbars.chat);
@@ -1080,6 +1143,8 @@ fn populate_context_limits_from_config_ref_seeds_global_cache() {
             base_url: "https://gateway.example.test/v1".to_string(),
             models: vec![NamedProviderModelConfig {
                 id: model_id.to_string(),
+                reasoning: None,
+                reasoning_effort: None,
                 context_window: Some(1_000_000),
                 input: Vec::new(),
             }],
@@ -1114,11 +1179,15 @@ fn populate_context_limits_from_config_seeds_qualified_runtime_model_shapes() {
             models: vec![
                 NamedProviderModelConfig {
                     id: "issue421-qwen-128k".to_string(),
+                    reasoning: None,
+                    reasoning_effort: None,
                     context_window: Some(131_072),
                     input: Vec::new(),
                 },
                 NamedProviderModelConfig {
                     id: "/opt/models/issue421-ornith-35b-q4.gguf".to_string(),
+                    reasoning: None,
+                    reasoning_effort: None,
                     context_window: Some(131_072),
                     input: Vec::new(),
                 },

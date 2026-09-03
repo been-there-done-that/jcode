@@ -404,6 +404,15 @@ cross_provider_failover = "countdown"
 # max_retries = 8
 # retry_backoff_cap_secs = 30
 
+[server]
+# Who executes autonomous wake requests from background completion/stall,
+# swarm await completion, and communication delivery.
+# "internal" starts or interrupts turns in the daemon (default).
+# "external" emits typed wake_requested events for an operator to handle and
+# never starts a turn or injects into a running turn.
+# Env override: JCODE_WAKE_MODE
+wake_mode = "internal"
+
 [agents]
 # Defaults for spawned helper agents (swarm workers, subagents, sidecars).
 # All keys are optional; the values below are the built-in defaults.
@@ -413,6 +422,12 @@ cross_provider_failover = "countdown"
 # session that spawned them. Set a concrete model only to pin every worker to it.
 # Env override: JCODE_SWARM_MODEL
 # swarm_model = "inherit"
+#
+# Default reasoning effort for spawned swarm workers when the spawn call does
+# not pass an explicit `effort` ("low", "medium", "high", ...). Leave unset so
+# workers inherit the provider-wide reasoning effort.
+# Env override: JCODE_SWARM_EFFORT
+# swarm_effort = "medium"
 #
 # How swarm-created agents are spawned:
 #   "inline"   - in-process (no window), shown as a live gallery viewport in the coordinator (default)

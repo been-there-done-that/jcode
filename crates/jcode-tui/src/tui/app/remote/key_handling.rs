@@ -278,6 +278,9 @@ async fn handle_remote_key_internal(
     if app.handle_onboarding_sim_reset_shortcut(code, modifiers) {
         return Ok(());
     }
+    if app.handle_update_sim_shortcut(code, modifiers) {
+        return Ok(());
+    }
 
     // The onboarding simulator owns all key handling while active (and Cmd+5
     // toggles it). Handle it first so no real onboarding action can leak through.
@@ -1063,16 +1066,10 @@ async fn handle_remote_key_internal(
                 }
 
                 if trimmed == "/model" || trimmed == "/models" {
-                    let _ = remote.refresh_models().await;
-                    // `refresh_models` re-queries providers and pushes the
-                    // result over the bus, where oversized frames get
-                    // downgraded to names-only. Also request the catalog
-                    // directly so the picker gets real route expansion even
-                    // when the bus push is downgraded and no usable local
-                    // catalog cache exists (otherwise every row is a
-                    // placeholder "remote-catalog" entry).
-                    let _ = remote.request_model_catalog().await;
-                    app.set_status_notice("Refreshing model catalog...");
+                    // Opening the picker is a read-only UI action. The session
+                    // bootstrap and explicit `/model refresh` command own
+                    // catalog I/O; doing it here races startup and briefly
+                    // replaces the session catalog with remote fallback rows.
                     app.open_model_picker();
                     return Ok(());
                 }
@@ -1680,6 +1677,7 @@ async fn handle_remote_key_internal(
                     app.queued_messages.clear();
                     app.pasted_contents.clear();
                     app.pending_images.clear();
+                    app.clear_inline_image_state();
                     app.clear_streaming_render_state();
                     app.clear_live_usage_state();
                     // Full transcript discard: diagrams and side panel pages
