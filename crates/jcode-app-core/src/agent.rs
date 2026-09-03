@@ -678,6 +678,65 @@ impl Agent {
         Ok(())
     }
 
+    /// Build the classifier turn context from the live session transcript.
+    ///
+    /// This is the source of truth for Auto‑mode gating: the last visible user
+    /// message becomes `user_message` and the recent visible tail (user +
+    /// assistant turns, excluding tool/output blocks and system reminders)
+    /// becomes `recent_history`. The classifier uses this to decide whether the
+    /// user's stated constraints (e.g. "don't run delete queries") apply to a
+    /// given effectful tool call, regardless of which tool executes it.
+    fn turn_context_for_classifier(&self) -> Option<jcode_classifier::TurnContext> {
+        const MAX_HISTORY_MESSAGES: usize = 12;
+        const MAX_HISTORY_CHARS: usize = 8_000;
+
+        let visible: Vec<&StoredMessage> = self
+            .session
+            .messages
+            .iter()
+            .filter(|message| jcode_base::session::is_visible_conversation_message(message))
+            .collect();
+
+        let user_message = visible
+            .iter()
+            .rev()
+            .find(|message| message.role == Role::User)
+            .map(|message| {
+                message
+                    .content
+                    .iter()
+                    .find_map(|block| match block {
+                        ContentBlock::Text { text, .. } => Some(text.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_default()
+            });
+
+        let history_source: Vec<&StoredMessage> = if visible.len() > MAX_HISTORY_MESSAGES {
+            visible[visible.len() - MAX_HISTORY_MESSAGES..].to_vec()
+        } else {
+            visible
+        };
+
+        let mut recent_history: Vec<Message> = Vec::new();
+        let mut chars: usize = 0;
+        for message in history_source.iter().rev() {
+            let converted = message.to_message();
+            let message_chars = stable_json_len(&converted);
+            if !recent_history.is_empty() && chars + message_chars > MAX_HISTORY_CHARS {
+                break;
+            }
+            chars += message_chars;
+            recent_history.push(converted);
+        }
+        recent_history.reverse();
+
+        Some(jcode_classifier::TurnContext::new(
+            user_message,
+            recent_history,
+        ))
+    }
+
     fn messages_for_provider(&mut self) -> (Vec<Message>, Option<CompactionEvent>) {
         if self.provider.supports_compaction() || self.session.compaction.is_some() {
             let compaction = self.registry.compaction();

@@ -5,6 +5,42 @@ use crate::{ClassifierInput, ToolCall};
 use jcode_message_types::Message;
 use std::path::PathBuf;
 
+/// The user's request text for the current turn.
+///
+/// This is the literal text the user sent that the agent is acting on. It is the
+/// primary signal the classifier uses to decide whether a tool call is
+/// authorized: an action aligned with this request is far more likely to be
+/// allowed than one the user never asked for.
+#[derive(Debug, Clone, Default)]
+pub struct TurnContext {
+    /// The user's request text for the current turn (what they asked for).
+    pub user_message: Option<String>,
+    /// Recent conversation history (truncated to what fits the prompt).
+    pub recent_history: Vec<Message>,
+}
+
+impl TurnContext {
+    /// Empty turn context (no user message / no history available).
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Construct from a user message and history.
+    pub fn new(user_message: Option<String>, recent_history: Vec<Message>) -> Self {
+        Self {
+            user_message,
+            recent_history,
+        }
+    }
+
+    /// Build a honorific-free single-string summary of the turn context for
+    /// prompts that expect a flat "USER REQUEST:" line. Falls back to an empty
+    /// string when no user message is available.
+    pub fn user_request_line(&self) -> String {
+        self.user_message.clone().unwrap_or_default()
+    }
+}
+
 /// Builder for ClassifierInput.
 #[derive(Debug)]
 pub struct ClassifierInputBuilder {
@@ -13,6 +49,7 @@ pub struct ClassifierInputBuilder {
     recent_history: Vec<Message>,
     working_directory: Option<PathBuf>,
     config: ClassifierConfig,
+    turn_context: Option<TurnContext>,
 }
 
 impl ClassifierInputBuilder {
@@ -24,6 +61,7 @@ impl ClassifierInputBuilder {
             recent_history: Vec::new(),
             working_directory: None,
             config: ClassifierConfig::default(),
+            turn_context: None,
         }
     }
 
@@ -60,6 +98,12 @@ impl ClassifierInputBuilder {
         self
     }
 
+    /// Set the full turn context (user request + history).
+    pub fn turn_context(mut self, turn_context: TurnContext) -> Self {
+        self.turn_context = Some(turn_context);
+        self
+    }
+
     /// Build the ClassifierInput.
     pub fn build(self) -> Result<ClassifierInput, ClassifierInputError> {
         Ok(ClassifierInput {
@@ -69,6 +113,7 @@ impl ClassifierInputBuilder {
             working_directory: self.working_directory
                 .unwrap_or_else(|| PathBuf::from(".")),
             config: self.config,
+            turn_context: self.turn_context,
         })
     }
 }

@@ -42,9 +42,11 @@ use crate::compaction::CompactionManager;
 use crate::provider::Provider;
 use crate::skill::SkillRegistry;
 use anyhow::Result;
+use jcode_classifier::{self as classifier, TurnContext as ClassifierTurnContext};
 use jcode_message_types::ToolDefinition;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 pub(crate) fn tool_name_is_allowed(allowed: &HashSet<String>, name: &str) -> bool {
@@ -165,6 +167,10 @@ pub struct Registry {
     tools: Arc<RwLock<HashMap<String, Arc<dyn Tool>>>>,
     skills: Arc<RwLock<SkillRegistry>>,
     compaction: Arc<RwLock<CompactionManager>>,
+    /// Per-turn context used by the Auto Mode classifier gate. The agent loop
+    /// refreshes this before each provider round so tool executions evaluate
+    /// against the actual user request and conversation, not an empty context.
+    turn_context: Arc<RwLock<Option<ClassifierTurnContext>>>,
 }
 
 impl Clone for Registry {
@@ -175,6 +181,7 @@ impl Clone for Registry {
             // Each clone gets a fresh CompactionManager to prevent parallel
             // subagents from corrupting each other's message history
             compaction: Arc::new(RwLock::new(CompactionManager::new())),
+            turn_context: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -211,6 +218,7 @@ impl Registry {
             tools: Arc::new(RwLock::new(HashMap::new())),
             skills: Arc::new(RwLock::new(SkillRegistry::default())),
             compaction: Arc::new(RwLock::new(CompactionManager::new())),
+            turn_context: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -347,6 +355,7 @@ impl Registry {
             tools: Arc::new(RwLock::new(HashMap::new())),
             skills: skills.clone(),
             compaction: compaction.clone(),
+            turn_context: Arc::new(RwLock::new(None)),
         };
         let registry_struct_ms = registry_struct_start.elapsed().as_millis();
 
@@ -669,6 +678,104 @@ impl Registry {
         )
     }
 
+    /// Set the per-turn context used by the Auto Mode classifier gate.
+    ///
+    /// The agent loop calls this before each provider round with the user's
+    /// request text and recent conversation history, so that tool executions
+    /// are evaluated against what the user actually asked for.
+    pub async fn set_turn_context(&self, context: Option<ClassifierTurnContext>) {
+        *self.turn_context.write().await = context;
+    }
+
+    /// Snapshot the current turn context (for the classifier gate).
+    async fn take_turn_context(&self) -> Option<ClassifierTurnContext> {
+        self.turn_context.read().await.clone()
+    }
+
+    /// Tools that mutate the world and therefore must pass the Auto Mode
+    /// classifier before running. Read-only / informational tools are excluded
+    /// so the auto loop can keep inspecting state without a round-trip.
+    const AUTO_MODE_EFFECTFUL_TOOLS: &'static [&'static str] = &[
+        "bash",
+        "write",
+        "edit",
+        "multiedit",
+        "patch",
+        "apply_patch",
+        "open",
+        "browser",
+        "webfetch",
+        "websearch",
+        "bg",
+        "gmail",
+        "selfdev",
+        "communicate",
+        "schedule",
+        "request_permission",
+    ];
+
+    /// If Auto Mode is active and the classifier blocks this call, return the
+    /// refusal message. Returns `None` when the action is allowed (or the
+    /// classifier is unavailable / misconfigured, in which case we fail closed
+    /// and return a denial string).
+    async fn auto_mode_decision(
+        &self,
+        tool_name: &str,
+        input: &Value,
+        ctx: &ToolContext,
+    ) -> Option<String> {
+        use crate::safety::PermissionMode;
+        use jcode_classifier::Decision;
+
+        // The live SafetySystem is shared via the ambient module's global slot.
+        let safety = crate::tool::ambient::get_safety_system();
+        if safety.mode() != PermissionMode::Auto {
+            return None;
+        }
+
+        let tool_call = classifier::ToolCall {
+            name: tool_name.to_string(),
+            arguments: input.clone(),
+        };
+        let turn_context = self.take_turn_context().await;
+        let config = &crate::config::config().permissions;
+
+        match safety
+            .classify_ai(
+                turn_context
+                    .as_ref()
+                    .and_then(|tc| tc.user_message.clone())
+                    .unwrap_or_default()
+                    .as_str(),
+                tool_call,
+                turn_context
+                    .as_ref()
+                    .map(|tc| tc.recent_history.clone())
+                    .unwrap_or_default(),
+                ctx.working_dir.clone().unwrap_or_else(|| PathBuf::from(".")),
+                &config,
+                turn_context,
+            )
+            .await
+        {
+            Ok(result) => match result.decision {
+                Decision::Allow => None,
+                Decision::Block { detail, .. } => Some(format!(
+                    "Auto Mode blocked '{}': {}",
+                    tool_name, detail
+                )),
+            },
+            // Fail closed: a classifier error must not let a destructive action
+            // slip through. The only safe fallback is to deny and let the user
+            // approve explicitly.
+            Err(e) => Some(format!(
+                "Auto Mode could not evaluate '{}' (classifier error: {}). \
+                 Action denied for safety; switch to Manual mode or approve explicitly.",
+                tool_name, e
+            )),
+        }
+    }
+
     /// Execute a tool by name
     pub async fn execute(&self, name: &str, input: Value, ctx: ToolContext) -> Result<ToolOutput> {
         // Mark this call in-flight for the whole execution so the missing
@@ -731,6 +838,19 @@ impl Registry {
                 return Err(anyhow::anyhow!(
                     "Tool call blocked by pre_tool hook: {reason}"
                 ));
+            }
+        }
+
+        // Auto Mode gate: when the safety system is in Auto mode, consult the AI
+        // classifier before running effectful tools. This is the single central
+        // enforcement point for "can this command run given what the user asked",
+        // covering bash, write, edit, etc. — not just the ambient-only
+        // request_permission tool. A block (or any classifier failure) denies
+        // the action; we fail closed rather than silently executing. Read-only
+        // tools (read/glob/grep/ls/memory/...) skip the classifier entirely.
+        if Self::AUTO_MODE_EFFECTFUL_TOOLS.contains(&resolved_name) {
+            if let Some(decision) = self.auto_mode_decision(resolved_name, &input, &ctx).await {
+                return Err(anyhow::anyhow!(decision));
             }
         }
 

@@ -777,7 +777,10 @@ impl Server {
         // Initialize the background runner even when ambient mode is disabled so
         // session-targeted scheduled tasks still have a live delivery loop.
         let safety = Arc::new(crate::safety::SafetySystem::new());
-        safety.init_classifier(Arc::clone(&provider) as Arc<dyn jcode_provider_core::Provider + Send + Sync>);
+        safety.init_classifier(
+            Arc::clone(&provider) as Arc<dyn jcode_provider_core::Provider + Send + Sync>,
+            Some(&crate::config::config().permissions),
+        );
         let handle = AmbientRunnerHandle::new(Arc::clone(&safety));
         crate::tool::ambient::init_safety_system(safety);
         crate::tool::ambient::init_schedule_runner(handle.clone());

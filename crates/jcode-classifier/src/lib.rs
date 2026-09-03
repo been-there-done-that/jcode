@@ -38,6 +38,8 @@ use anyhow::Result;
 use async_trait::async_trait;
 use jcode_message_types::{ContentBlock, Message, Role};
 
+pub use input::TurnContext;
+
 /// Main classifier trait.
 ///
 /// Implementors provide the actual AI classification logic. The session provider
@@ -68,6 +70,12 @@ pub struct ClassifierInput {
 
     /// Classifier configuration.
     pub config: config::ClassifierConfig,
+
+    /// Full turn context: the user's request for the current turn plus the
+    /// surrounding conversation. When available this is preferred over the
+    /// individual `user_message` / `recent_history` fields because it carries
+    /// the exact text the agent is acting on.
+    pub turn_context: Option<TurnContext>,
 }
 
 /// A tool call to be evaluated.
@@ -115,10 +123,55 @@ impl SessionProviderClassifier {
 #[async_trait]
 impl Classifier for SessionProviderClassifier {
     async fn classify(&self, input: &ClassifierInput) -> Result<ClassifierResult> {
-        // Build Stage 1 prompt
-        let (system_prompt, user_message) = stages::build_stage1(&input);
+        // Stage 1: fast filter. Returns YES/NO. A YES is a confident allow;
+        // a NO is a flag for deeper review rather than an immediate deny, so we
+        // escalate to Stage 2 for the full reasoning pass.
+        let stage1 = self.run_stage(&stages::build_stage1, stages::parse_stage1_response, input, 1).await?;
 
-        // Create a single user message with ContentBlock
+        match stage1.decision {
+            decision::Decision::Allow => Ok(stage1),
+            decision::Decision::Block { .. } => {
+                // Stage 2: thorough evaluation. This re-runs with a more careful
+                // prompt and history context, and is the final word. Network or
+                // parse failures here fall back to the Stage 1 verdict so a
+                // transient issue does not silently approve a flagged action.
+                match self
+                    .run_stage(&stages::build_stage2, stages::parse_stage2_response, input, 2)
+                    .await
+                {
+                    Ok(stage2) => Ok(stage2),
+                    Err(e) => {
+                        // Preserve the Stage 1 denial but annotate that Stage 2
+                        // could not run, so callers can see why the full review
+                        // was skipped.
+                        let mut result = stage1;
+                        if !result.reason.contains("Stage 2 unavailable") {
+                            result.reason = format!("{} (Stage 2 unavailable: {})", result.reason, e);
+                        }
+                        Ok(result)
+                    }
+                }
+            }
+        }
+    }
+
+    fn model_name(&self) -> String {
+        self.provider.model()
+    }
+}
+
+impl SessionProviderClassifier {
+    /// Run a single classification stage: build the prompt, call the provider,
+    /// collect the response, and parse it.
+    async fn run_stage(
+        &self,
+        build: impl Fn(&ClassifierInput) -> (String, String),
+        parse: impl Fn(&str, u8) -> Result<ClassifierResult>,
+        input: &ClassifierInput,
+        stage: u8,
+    ) -> Result<ClassifierResult> {
+        let (system_prompt, user_message) = build(input);
+
         let content = vec![ContentBlock::Text {
             text: user_message,
             cache_control: None,
@@ -130,23 +183,13 @@ impl Classifier for SessionProviderClassifier {
             tool_duration_ms: None,
         }];
 
-        // Call the provider
-        let stream = self.provider.complete(
-            &messages,
-            &[], // No tools needed for classification
-            &system_prompt,
-            None,
-        ).await?;
+        let stream = self
+            .provider
+            .complete(&messages, &[], &system_prompt, None)
+            .await?;
 
-        // Collect the response
         let response = collect_response(stream).await?;
-
-        // Parse the response
-        stages::parse_stage1_response(&response, 1)
-    }
-
-    fn model_name(&self) -> String {
-        self.provider.model()
+        parse(&response, stage)
     }
 }
 

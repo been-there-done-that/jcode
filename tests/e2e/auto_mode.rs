@@ -85,7 +85,7 @@ async fn auto_mode_demo() -> Result<()> {
     // Grab the prompt-capture handle before the provider is moved into the
     // classifier, so scenario 2 can assert the classifier was consulted.
     let classifier_prompts = classifier_provider.captured_system_prompts.clone();
-    safety.init_classifier(Arc::new(classifier_provider) as Arc<dyn Provider>);
+    safety.init_classifier(Arc::new(classifier_provider) as Arc<dyn Provider>, None);
     jcode::tool::ambient::init_safety_system(safety.clone());
 
     let tool = RequestPermissionTool::new();
@@ -262,6 +262,123 @@ async fn auto_mode_demo() -> Result<()> {
     let _: Vec<Message> = Vec::new(); // keep imports honest if code shifts
     jcode::tool::ambient::unregister_ambient_session(session);
 
+    // -----------------------------------------------------------------
+    println!("\n========== SCENARIO 6: Central gate blocks effectful tools ==========");
+    // The Auto Mode classifier must gate *real* tool execution (bash, write,
+    // ...) through Registry::execute, not just the ambient request_permission
+    // tool. Here the user says "talk to the DB with python, but don't run
+    // delete queries" -> a delete command arriving via bash must be blocked.
+    safety.set_mode(PermissionMode::Auto);
+
+    // Fresh classifier provider: 1) allow a select query, 2) block the delete.
+    let gate_provider = MockProvider::new();
+    gate_provider.queue_response(stage1_response(
+        "Read-only SELECT against the analytics table matches the user's request",
+        "YES",
+    ));
+    gate_provider.queue_response(stage1_response(
+        "DROP TABLE destroys data; the user explicitly said not to run delete queries",
+        "NO",
+    ));
+    safety.init_classifier(
+        Arc::new(gate_provider) as Arc<dyn Provider>,
+        None,
+    );
+    jcode::tool::ambient::init_safety_system(safety.clone());
+
+    // Register effectful test tools named exactly like the real ones so the
+    // AUTO_MODE_EFFECTFUL_TOOLS gate triggers.
+    let gate_provider_for_registry = MockProvider::new();
+    let gate_registry = Registry::new(Arc::new(gate_provider_for_registry) as Arc<dyn Provider>).await;
+    gate_registry
+        .register(
+            "bash".to_string(),
+            Arc::new(GateTool {
+                name: "bash",
+
+            }),
+        )
+        .await;
+    gate_registry
+        .register(
+            "write".to_string(),
+            Arc::new(GateTool {
+                name: "write",
+
+            }),
+        )
+        .await;
+
+    let turn_context = jcode_classifier::TurnContext::new(
+        Some("use python to talk to the database, but do not run any delete queries".to_string()),
+        Vec::new(),
+    );
+    gate_registry.set_turn_context(Some(turn_context)).await;
+
+    // 1) A benign SELECT command is allowed and the tool actually runs.
+    let select_out = gate_registry
+        .execute(
+            "bash",
+            serde_json::json!({ "command": "python -c \"SELECT * FROM users\"" }),
+            ctx("gate_session"),
+        )
+        .await;
+    println!("select command -> {select_out:?}");
+    assert!(select_out.is_ok(), "read-only command must be allowed");
+    assert_eq!(select_out.unwrap().output, "ran:bash");
+
+    // 2) A DROP/DELETE command is blocked by the classifier and never reaches
+    //    the underlying tool (fail-closed).
+    let delete_out = gate_registry
+        .execute(
+            "bash",
+            serde_json::json!({ "command": "python -c \"DROP TABLE users\"" }),
+            ctx("gate_session"),
+        )
+        .await;
+    println!("delete command -> {delete_out:?}");
+    assert!(delete_out.is_err(), "destructive command must be blocked");
+    let err = delete_out.unwrap_err().to_string();
+    assert!(
+        err.contains("Auto Mode blocked"),
+        "gate must report an Auto Mode block: {err}"
+    );
+
     println!("\nAll scenarios behaved as expected.");
     Ok(())
+}
+
+/// Effectful test tool used in SCENARIO 6 to prove the central classifier gate
+/// prevents execution of blocked commands. The tool itself is a no-op that
+/// records nothing; what matters is whether `execute` is reached at all.
+struct GateTool {
+    name: &'static str,
+}
+
+#[async_trait::async_trait]
+impl jcode::tool::Tool for GateTool {
+    fn name(&self) -> &str {
+        self.name
+    }
+
+    fn description(&self) -> &str {
+        "Test effectful tool for the central Auto Mode gate."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "required": ["command"],
+            "properties": { "command": { "type": "string" } }
+        })
+    }
+
+    async fn execute(
+        &self,
+        _input: serde_json::Value,
+        _ctx: jcode::tool::ToolContext,
+    ) -> anyhow::Result<jcode::tool::ToolOutput> {
+        // If we reach here, the gate let the command through.
+        Ok(jcode::tool::ToolOutput::new(format!("ran:{}", self.name)))
+    }
 }

@@ -609,5 +609,8 @@ jcode-provider-core = { path = "crates/jcode-provider-core" }
 # target. Feature unification applies this only to test/bench/example builds,
 # never to a normal `cargo build`/release binary.
 jcode-tui = { path = "crates/jcode-tui", default-features = false, features = ["test-support"] }
+# Used by tests/e2e/auto_mode.rs SCENARIO 6 to construct a classifier
+# TurnContext that drives the central Auto Mode gate in Registry::execute.
+jcode-classifier = { path = "crates/jcode-classifier" }
 
 [build-dependencies]

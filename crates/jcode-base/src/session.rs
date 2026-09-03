@@ -85,7 +85,7 @@ fn is_internal_system_reminder_message(message: &StoredMessage) -> bool {
         .is_some_and(|text| text.starts_with("<system-reminder>"))
 }
 
-fn is_visible_conversation_message(message: &StoredMessage) -> bool {
+pub fn is_visible_conversation_message(message: &StoredMessage) -> bool {
     message.display_role.is_none()
         && !is_internal_system_reminder_message(message)
         && !is_scheduled_task_message(message)

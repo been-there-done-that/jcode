@@ -66,7 +66,7 @@ pub fn init_schedule_runner(handle: AmbientRunnerHandle) {
     }
 }
 
-fn get_safety_system() -> Arc<SafetySystem> {
+pub fn get_safety_system() -> Arc<SafetySystem> {
     SAFETY_SYSTEM
         .get()
         .cloned()

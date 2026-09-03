@@ -203,9 +203,19 @@ impl SafetySystem {
     }
 
     /// Initialize the AI classifier with the given provider.
-    pub fn init_classifier(&self, provider: Arc<dyn jcode_provider_core::Provider + Send + Sync>) {
+    ///
+    /// `permissions_config` selects the model route and trust boundaries the
+    /// classifier runs with. Passing `None` falls back to the default config.
+    pub fn init_classifier(
+        &self,
+        provider: Arc<dyn jcode_provider_core::Provider + Send + Sync>,
+        config: Option<&PermissionsConfig>,
+    ) {
+        let classifier_config = config
+            .map(ClassifierConfig::from)
+            .unwrap_or_else(ClassifierConfig::default_config);
         let mut classifier = self.classifier.lock().unwrap();
-        *classifier = Some(Arc::new(SessionProviderClassifier::new(provider, ClassifierConfig::default_config())));
+        *classifier = Some(Arc::new(SessionProviderClassifier::new(provider, classifier_config)));
     }
 
     /// Classify a permission request using the AI classifier (Auto Mode).
@@ -217,6 +227,7 @@ impl SafetySystem {
         recent_history: Vec<Message>,
         working_directory: PathBuf,
         config: &PermissionsConfig,
+        turn_context: Option<jcode_classifier::TurnContext>,
     ) -> Result<jcode_classifier::ClassifierResult> {
         // Ensure classifier is initialized
         let classifier = {
@@ -233,6 +244,7 @@ impl SafetySystem {
             recent_history,
             working_directory,
             config: classifier_config,
+            turn_context,
         };
 
         classifier.classify(&input).await
@@ -254,6 +266,7 @@ impl SafetySystem {
             recent_history,
             working_directory,
             permissions_config,
+            None,
         ).await
     }
 

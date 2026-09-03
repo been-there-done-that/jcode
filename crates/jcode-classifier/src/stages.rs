@@ -1,6 +1,5 @@
 //! Stage 1 and Stage 2 prompts for the classifier.
 
-use crate::config::ClassifierConfig;
 use crate::decision::{BlockCategory, Decision};
 use crate::{ClassifierInput, ClassifierResult};
 use anyhow::{anyhow, Result};
@@ -47,7 +46,7 @@ CLASSIFICATION CRITERIA:
 fn build_stage1_user_message(input: &ClassifierInput) -> String {
     let mut msg = String::new();
     
-    writeln!(msg, "USER REQUEST: {}", input.user_message).unwrap();
+    writeln!(msg, "USER REQUEST: {}", effective_user_message(input)).unwrap();
     writeln!(msg).unwrap();
     writeln!(msg, "TOOL CALL:").unwrap();
     writeln!(msg, "- Tool: {}", input.tool_call.name).unwrap();
@@ -65,6 +64,33 @@ fn build_stage1_user_message(input: &ClassifierInput) -> String {
     }
     
     msg
+}
+
+/// Resolve the user's request text for the current turn.
+///
+/// Prefers the full `turn_context` (the exact text the agent is acting on) when
+/// it is populated; otherwise falls back to the legacy `user_message` field.
+fn effective_user_message(input: &ClassifierInput) -> String {
+    if let Some(tc) = &input.turn_context
+        && let Some(um) = &tc.user_message
+    {
+        return um.clone();
+    }
+    input.user_message.clone()
+}
+
+/// Resolve the recent history for the current turn.
+///
+/// Prefers `turn_context.recent_history` when populated, otherwise falls back to
+/// the legacy `recent_history` field.
+fn effective_history(input: &ClassifierInput) -> &[jcode_message_types::Message] {
+    if let Some(tc) = &input.turn_context
+        && !tc.recent_history.is_empty()
+    {
+        &tc.recent_history
+    } else {
+        &input.recent_history
+    }
 }
 
 /// Stage 2 system prompt.
@@ -101,7 +127,7 @@ fn build_stage2_user_message(input: &ClassifierInput) -> String {
         writeln!(msg).unwrap();
     }
     
-    writeln!(msg, "USER REQUEST: {}", input.user_message).unwrap();
+    writeln!(msg, "USER REQUEST: {}", effective_user_message(input)).unwrap();
     writeln!(msg).unwrap();
     writeln!(msg, "TOOL CALL:").unwrap();
     writeln!(msg, "- Tool: {}", input.tool_call.name).unwrap();
@@ -119,10 +145,11 @@ fn build_stage2_user_message(input: &ClassifierInput) -> String {
     }
     
     // Recent history
-    if !input.recent_history.is_empty() {
+    let history = effective_history(input);
+    if !history.is_empty() {
         writeln!(msg).unwrap();
         writeln!(msg, "HISTORY (recent context):").unwrap();
-        for history_msg in &input.recent_history {
+        for history_msg in history {
             let role_str = match history_msg.role {
                 Role::User => "User",
                 Role::Assistant => "Assistant",
