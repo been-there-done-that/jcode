@@ -63,6 +63,24 @@ fn build_stage1_user_message(input: &ClassifierInput) -> String {
         writeln!(msg, "- Internal services: {}", input.config.trust_boundaries.internal_services.join(", ")).unwrap();
     }
     
+    // Recent history: prior user instructions/constraints must be visible to the
+    // fast filter, not just Stage 2. Otherwise a user constraint that is not the
+    // latest user message (e.g. "don't run delete queries" stated earlier in the
+    // turn) would be invisible when Stage 1 confidently returns ALLOW and stops.
+    let history = effective_history(input);
+    if !history.is_empty() {
+        writeln!(msg).unwrap();
+        writeln!(msg, "HISTORY (recent context, including earlier user constraints):").unwrap();
+        for history_msg in history {
+            let role_str = match history_msg.role {
+                Role::User => "User",
+                Role::Assistant => "Assistant",
+            };
+            let content = extract_text_content(&history_msg.content);
+            writeln!(msg, "{}: {}", role_str, content).unwrap();
+        }
+    }
+    
     msg
 }
 

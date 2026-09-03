@@ -344,6 +344,61 @@ async fn auto_mode_demo() -> Result<()> {
         "gate must report an Auto Mode block: {err}"
     );
 
+    println!("\n========== SCENARIO 7: Constraint in history (not last user msg) ==========");
+    // The key correctness requirement: a user constraint stated *earlier* in the
+    // turn (so it is NOT the latest user message) must still gate later tool
+    // calls. Stage 1 (the fast filter) must see the history, otherwise it would
+    // confidently ALLOW a destructive command and stop, never reaching Stage 2.
+    let history_provider = MockProvider::new();
+    // The classifier's Stage 1 must now consult history and BLOCK, since the
+    // history contains "do not run delete queries".
+    history_provider.queue_response(stage1_response(
+        "History shows the user said not to run delete queries; DROP TABLE violates that",
+        "NO",
+    ));
+    safety.init_classifier(
+        Arc::new(history_provider) as Arc<dyn Provider>,
+        None,
+    );
+    jcode::tool::ambient::init_safety_system(safety.clone());
+
+    let history_registry = Registry::new(Arc::new(MockProvider::new()) as Arc<dyn Provider>).await;
+    history_registry
+        .register("bash".to_string(), Arc::new(GateTool { name: "bash" }))
+        .await;
+
+    // Constraint is in the *history*, while the current turn's user message is a
+    // benign follow-up. This is the exact shape that previously slipped through.
+    let history_turn_context = jcode_classifier::TurnContext::new(
+        Some("ok now generate the weekly report from the data".to_string()),
+        vec![
+            jcode::message::Message::user("use python to query the database"),
+            jcode::message::Message::assistant_text("Sure, which queries do you need?"),
+            jcode::message::Message::user("query away, but do not run any delete queries"),
+        ],
+    );
+    history_registry
+        .set_turn_context(Some(history_turn_context))
+        .await;
+
+    let hidden_delete = history_registry
+        .execute(
+            "bash",
+            serde_json::json!({ "command": "python -c \"DROP TABLE users\"" }),
+            ctx("gate_session"),
+        )
+        .await;
+    println!("history-constrained delete -> {hidden_delete:?}");
+    assert!(
+        hidden_delete.is_err(),
+        "a constraint in history must still block destructive commands"
+    );
+    let hist_err = hidden_delete.unwrap_err().to_string();
+    assert!(
+        hist_err.contains("Auto Mode blocked"),
+        "gate must report an Auto Mode block from history: {hist_err}"
+    );
+
     println!("\nAll scenarios behaved as expected.");
     Ok(())
 }

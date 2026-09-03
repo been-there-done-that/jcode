@@ -17,6 +17,7 @@ fn create_test_input() -> ClassifierInput {
         recent_history: Vec::new(),
         working_directory: PathBuf::from("/home/user/project"),
         config: ClassifierConfig::default(),
+        turn_context: None,
     }
 }
 
