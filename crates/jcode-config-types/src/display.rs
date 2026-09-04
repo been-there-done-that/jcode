@@ -2,7 +2,8 @@
 
 use crate::{
     DiagramDisplayMode, DiffDisplayMode, LatexRenderingMode, MarkdownSpacingMode,
-    NativeScrollbarConfig, OverscrollStatusMode, ReasoningDisplayMode, default_true,
+    NativeScrollbarConfig, OverscrollStatusMode, ReasoningDisplayMode, ToolCallLayout,
+    default_true,
 };
 use serde::{Deserialize, Serialize};
 
@@ -89,6 +90,11 @@ pub struct DisplayConfig {
     /// always fall back to the technical detail.
     #[serde(default)]
     pub tool_call_details: bool,
+    /// How a tool call is presented in the transcript: `compact` (default,
+    /// borderless icon-prefixed rows) or `lifecycle` (a bordered card framing
+    /// the full validate → execute → output lifecycle).
+    #[serde(default, deserialize_with = "crate::serde_lenient::lenient_enum")]
+    pub tool_call_layout: ToolCallLayout,
     /// Native terminal scrollbar configuration for scrollable panes
     pub native_scrollbars: NativeScrollbarConfig,
     /// Surface occasional "learn this keybinding" nudges when the user keeps
@@ -158,6 +164,7 @@ impl Default for DisplayConfig {
             show_agentgrep_output: false,
             show_bash_output: false,
             tool_call_details: false,
+            tool_call_layout: ToolCallLayout::default(),
             native_scrollbars: NativeScrollbarConfig::default(),
             keybinding_hints: true,
             theme: String::new(),

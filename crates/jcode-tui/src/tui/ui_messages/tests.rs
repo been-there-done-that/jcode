@@ -2146,6 +2146,64 @@ fn render_tool_message_shows_token_badge() {
 }
 
 #[test]
+fn render_tool_message_lifecycle_wraps_an_ordinary_call_in_a_card() {
+    // Switch the presentation to the bordered "lifecycle" card.
+    crate::config::Config::set_tool_call_layout(jcode_config_types::ToolCallLayout::Lifecycle)
+        .expect("persist layout");
+
+    let msg = DisplayMessage {
+        role: "tool".to_string(),
+        content: "Applied 3 migrations in 212ms\nmigration_003 ok".to_string(),
+        tool_calls: Vec::new(),
+        duration_secs: Some(4.9),
+        title: None,
+        tool_data: Some(crate::message::ToolCall {
+            id: "call_migrate".to_string(),
+            name: "bash".to_string(),
+            input: serde_json::json!({"command": "pnpm prisma migrate dev --name add_index"}),
+            intent: Some("running the DB migration".to_string()),
+            thought_signature: None,
+        }),
+
+        ai_validated: Some(true),
+        classifier_decision: Some("allow".to_string()),
+    };
+
+    let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
+    let text = lines
+        .iter()
+        .map(extract_line_text)
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Bordered card: top/bottom rounded caps + a body `│` column.
+    assert!(text.contains('╭'), "missing card top: {text}");
+    assert!(text.contains('╰'), "missing card bottom: {text}");
+    assert!(text.contains("│"), "missing card body border: {text}");
+
+    // Header carries the tool name + classifier chip.
+    assert!(text.contains("bash"), "{text}");
+    assert!(text.contains("🤖✓"), "missing validated chip: {text}");
+    assert!(text.contains("allow"), "missing classifier decision: {text}");
+
+    // Status line reports validation + execution outcome.
+    assert!(text.contains("Agent validated"), "{text}");
+    assert!(text.contains("completed"), "{text}");
+
+    // Request/params and a bounded output preview are present, plus the
+    // overflow hint (output has 2 lines, under the preview cap).
+    assert!(
+        text.contains("pnpm prisma migrate dev --name add_index"),
+        "missing request body: {text}"
+    );
+    assert!(text.contains("Output"), "{text}");
+
+    // Restore the default presentation for other tests.
+    crate::config::Config::set_tool_call_layout(jcode_config_types::ToolCallLayout::Compact)
+        .expect("restore layout");
+}
+
+#[test]
 fn render_tool_message_hides_bash_output() {
     let msg = DisplayMessage {
         role: "tool".to_string(),

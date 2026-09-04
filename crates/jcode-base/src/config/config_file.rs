@@ -290,6 +290,18 @@ impl Config {
         Ok(())
     }
 
+    /// Update the persisted tool-call layout presentation.
+    pub fn set_tool_call_layout(layout: jcode_config_types::ToolCallLayout) -> anyhow::Result<()> {
+        let mut cfg = Self::load_for_update()?;
+        cfg.display.tool_call_layout = layout;
+        cfg.save()?;
+        crate::logging::info(&format!(
+            "Saved display.tool_call_layout to config: {}",
+            layout
+        ));
+        Ok(())
+    }
+
     /// Persist the baked global launch-hotkey mapping.
     ///
     /// Auto-import calls this once with the per-repo chord -> directory layout it

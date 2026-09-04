@@ -319,6 +319,48 @@ impl std::fmt::Display for UpdateChannel {
     }
 }
 
+/// How a single tool call is presented in the TUI transcript.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolCallLayout {
+    /// Borderless, icon-prefixed rows. The status and classifier chips sit on
+    /// the header line, request/params and output follow on indented lines
+    /// only when `display.tool_call_details` / `show_bash_output` are on. The
+    /// original jcode tool-call presentation (default).
+    #[default]
+    Compact,
+    /// A self-contained card that frames the whole tool-call lifecycle: header,
+    /// request/params, validation + execution status, and a bounded output
+    /// preview with an explicit overflow hint. Output beyond the preview is
+    /// revealed with `Alt+o`.
+    Lifecycle,
+}
+
+impl ToolCallLayout {
+    /// Human label for `/tool-call-layout` and the config summary.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Compact => "compact",
+            Self::Lifecycle => "lifecycle",
+        }
+    }
+
+    /// Parse a layout name, returning `None` for unknown values.
+    pub fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "compact" | "default" | "classic" | "rows" => Some(Self::Compact),
+            "lifecycle" | "card" | "box" | "boxed" => Some(Self::Lifecycle),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for ToolCallLayout {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label())
+    }
+}
+
 /// Cross-provider failover behavior when the same input would be resent elsewhere.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "lowercase")]

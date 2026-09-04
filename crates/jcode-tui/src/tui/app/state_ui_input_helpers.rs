@@ -115,6 +115,10 @@ const REGISTERED_COMMANDS: &[RegisteredCommand] = &[
         "Show/toggle dimmed technical details on tool rows with an intent",
     ),
     RegisteredCommand::public(
+        "/tool-call-layout",
+        "Choose tool-call presentation: compact rows or lifecycle cards",
+    ),
+    RegisteredCommand::public(
         "/thinking-display",
         "Show/hide the model's thinking text (off/full/current)",
     ),
@@ -1054,6 +1058,26 @@ impl App {
                     (
                         "/compact-notifications off".into(),
                         "Show full multi-line notification cards",
+                    ),
+                ],
+            );
+        }
+
+        if prefix.starts_with("/tool-call-layout ") {
+            return self.rank_suggestions(
+                input,
+                vec![
+                    (
+                        "/tool-call-layout status".into(),
+                        "Show the current tool-call presentation",
+                    ),
+                    (
+                        "/tool-call-layout compact".into(),
+                        "Borderless, icon-prefixed tool rows",
+                    ),
+                    (
+                        "/tool-call-layout lifecycle".into(),
+                        "Bordered card framing validate → execute → output",
                     ),
                 ],
             );

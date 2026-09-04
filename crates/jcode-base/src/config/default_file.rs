@@ -204,6 +204,12 @@ prompt_entry_animation = true
 # technical detail.
 # tool_call_details = false
 
+# How a tool call is presented in the transcript: "compact" (default,
+# borderless icon-prefixed rows) or "lifecycle" (a bordered card framing the
+# full validate → execute → output lifecycle, with output beyond the preview
+# revealed via Alt+o).
+# tool_call_layout = compact
+
 # Occasionally surface a "learn this keybinding" nudge (in a distinct color)
 # when you keep doing something the slow way (e.g. /resume) instead of using
 # its configured shortcut. Set false to disable all such hints (default: true).

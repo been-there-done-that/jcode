@@ -4096,6 +4096,21 @@ pub(crate) fn render_tool_message(
         return lines;
     }
 
+    // The "lifecycle" presentation is a self-contained bordered card. It applies
+    // to ordinary tool calls; the dedicated cards (todo, memory store/recall,
+    // gmail, discovery) and the batch summary below keep their own renderers, so
+    // they fall through to the borderless `compact` layout.
+    if crate::config::config().display.tool_call_layout == jcode_config_types::ToolCallLayout::Lifecycle
+        && let Some(ref tc) = msg.tool_data
+        && !tools_ui::is_memory_store_tool(tc)
+        && !tools_ui::is_memory_recall_tool(tc)
+        && tools_ui::canonical_tool_name(&tc.name) != "todo"
+        && tools_ui::canonical_tool_name(&tc.name) != "batch"
+        && tools_ui::canonical_tool_name(&tc.name) != "gmail"
+    {
+        return render_tool_message_lifecycle(msg, width, diff_mode);
+    }
+
     let centered = markdown::center_code_blocks();
     let token_badge = tool_output_token_badge(&msg.content);
 
@@ -4740,6 +4755,249 @@ pub(crate) fn render_tool_message(
     }
 
     lines
+}
+
+/// Bordered "lifecycle" presentation: a self-contained card framing the whole
+/// tool-call lifecycle (validate → execute → output). Request/params, the
+/// classifier validation chip, execution status, and a bounded output preview
+/// with an explicit overflow hint (`Alt+o` to expand) all live inside one box.
+///
+/// This is an *alternative* to [`render_tool_message`]'s borderless `compact`
+/// layout (selected via `display.tool_call_layout = "lifecycle"`). It does not
+/// replace the dedicated cards (memory, todo, gmail, discovery) or the batch
+/// summary — those keep their own renderers; callers fall back to `compact`
+/// for them.
+fn render_tool_message_lifecycle(
+    msg: &DisplayMessage,
+    width: u16,
+    diff_mode: crate::config::DiffDisplayMode,
+) -> Vec<Line<'static>> {
+    let centered = markdown::center_code_blocks();
+    let Some(ref tc) = msg.tool_data else {
+        // No tool metadata: there is nothing to frame as a lifecycle card.
+        return render_tool_message(msg, width, diff_mode);
+    };
+
+    let batch_counts = if tc.name == "batch" {
+        tools_ui::parse_batch_completion_counts(&msg.content)
+    } else {
+        None
+    };
+    let is_error = if let Some(counts) = batch_counts {
+        counts.failed > 0 && counts.succeeded == 0
+    } else {
+        tools_ui::tool_output_looks_failed(&msg.content)
+    };
+    let is_partial_batch = batch_counts
+        .map(|counts| counts.failed > 0 && counts.succeeded > 0)
+        .unwrap_or(false);
+
+    // ── Header ───────────────────────────────────────────────────────────────
+    // status icon: ✓/✗/⚠ ; classifier chip: 🤖✓/🤖✗/🤖⚠ sits between name and
+    // token badge. We deliberately keep the header compact and push everything
+    // else (request, validation detail, execution, output) into body rows.
+    let (status_icon, status_color) = if is_partial_batch {
+        ("⚠", rgb(214, 184, 92))
+    } else if is_error {
+        ("✗", rgb(220, 100, 100))
+    } else {
+        ("✓", rgb(100, 180, 100))
+    };
+    let tool_icon = tools_ui::tool_display_icon(&tc.name);
+    let display_name = tools_ui::resolve_display_tool_name(&tc.name).to_string();
+
+    let intent = tc
+        .intent
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let header_summary = intent
+        .map(str::to_string)
+        .unwrap_or_else(|| tools_ui::get_tool_summary_with_budget(tc, 60, None));
+
+    let mut header_spans = vec![
+        Span::styled(format!("{} ", status_icon), Style::default().fg(status_color)),
+        Span::styled(format!("{} ", tool_icon), Style::default().fg(tool_color())),
+        Span::styled(display_name, Style::default().fg(tool_color())),
+        Span::styled(" ", Style::default().fg(dim_color())),
+        Span::styled(header_summary.to_string(), Style::default().fg(tool_color())),
+    ];
+
+    if let Some(validated) = msg.ai_validated {
+        let (sym, color) = if validated {
+            ("\u{1F916}\u{2713}", Style::default().fg(rgb(120, 200, 120)))
+        } else if validated == false && is_classifier_unavailable(msg.classifier_decision.as_deref())
+        {
+            // Classifier failure: fail-closed but visually distinct from an
+            // explicit block so the operator can tell denial from unavailability.
+            ("\u{1F916}\u{26A0}", Style::default().fg(rgb(214, 184, 92)))
+        } else {
+            ("\u{1F916}\u{2717}", Style::default().fg(rgb(220, 120, 120)))
+        };
+        let mut label = sym.to_string();
+        if let Some(ref decision) = msg.classifier_decision {
+            label.push_str(&format!(" {}", decision));
+        }
+        header_spans.push(Span::styled(" ", Style::default().fg(dim_color())));
+        header_spans.push(Span::styled(label, color));
+    }
+
+    // ── Body rows (each its own dimmed `│ ` line inside the box) ─────────────
+    let block_width = if centered {
+        super::centered_content_block_width(width, 96)
+    } else {
+        width as usize
+    };
+    let inner_width = block_width.saturating_sub(4).max(1);
+    let sep = "│ ";
+    let cont = "  ";
+
+    let mut body: Vec<Line<'static>> = Vec::new();
+
+    // Request / params — rendered verbatim, hard-wrapped, non-truncated.
+    if let Some(text) = tool_request_text(tc) {
+        let avail = inner_width
+            .saturating_sub(UnicodeWidthStr::width(sep))
+            .max(1);
+        for raw in text.split('\n') {
+            for (i, chunk) in split_by_display_width(raw.trim_end_matches('\r'), avail)
+                .into_iter()
+                .enumerate()
+            {
+                let prefix = if i == 0 { sep } else { cont };
+                body.push(Line::from(Span::styled(
+                    format!("{prefix}{chunk}"),
+                    Style::default().fg(dim_color()),
+                )));
+            }
+        }
+    }
+
+    // Validation + execution status line.
+    let mut status_line = String::new();
+    if let Some(validated) = msg.ai_validated {
+        let verdict = if validated {
+            "validated"
+        } else if is_classifier_unavailable(msg.classifier_decision.as_deref()) {
+            "validation unavailable"
+        } else {
+            "blocked"
+        };
+        let decision = msg
+            .classifier_decision
+            .as_deref()
+            .filter(|d| !d.is_empty())
+            .map(|d| format!(" · {d}"))
+            .unwrap_or_default();
+        status_line.push_str(&format!("Agent {verdict}{decision}"));
+    }
+    let exec_state = if msg.ai_validated == Some(false) {
+        // A blocked or failed-closed call never executed.
+        "execution skipped"
+    } else if is_error {
+        "failed"
+    } else {
+        "completed"
+    };
+    if !status_line.is_empty() {
+        status_line.push_str(" · ");
+    }
+    status_line.push_str(&format!("{}", exec_state));
+    if let Some(mut secs) = msg.duration_secs {
+        if secs <= 0.0 {
+            secs = msg.content.len() as f32 / 1000.0;
+        }
+        if secs > 0.0 {
+            status_line.push_str(&format!(" · {secs:.1}s"));
+        }
+    }
+    body.push(Line::from(Span::styled(
+        format!("{sep}{status_line}"),
+        Style::default().fg(dim_color()),
+    )));
+
+    // Output preview — last N lines, with an overflow hint instead of every
+    // line. Massive outputs collapse to just the hint so the card never grows
+    // with output size.
+    let output_lines: Vec<&str> = msg
+        .content
+        .lines()
+        .map(|l| l.trim_end_matches('\r'))
+        .filter(|l| !l.trim().is_empty())
+        .collect();
+    if !output_lines.is_empty() {
+        const PREVIEW_OK: usize = 3;
+        const PREVIEW_ERR: usize = 8;
+        let max_preview = if is_error { PREVIEW_ERR } else { PREVIEW_OK };
+        let show_preview = tools_ui::show_tool_call_details()
+            || tools_ui::show_bash_output()
+            || is_error
+            || is_partial_batch;
+        let prefix_preview = if msg.content.lines().count() > 1 {
+            format!(" · showing last {max_preview} lines")
+        } else {
+            String::new()
+        };
+        body.push(Line::from(Span::styled(
+            format!("{sep}Output{prefix_preview}"),
+            Style::default().fg(dim_color()),
+        )));
+        if show_preview {
+            let avail = inner_width.saturating_sub(UnicodeWidthStr::width(sep)).max(1);
+            for raw in output_lines
+                .iter()
+                .rev()
+                .take(max_preview)
+                .rev()
+            {
+                for (i, chunk) in split_by_display_width(raw, avail).into_iter().enumerate() {
+                    let prefix = if i == 0 { sep } else { cont };
+                    body.push(Line::from(Span::styled(
+                        format!("{prefix}{chunk}"),
+                        Style::default().fg(if is_error {
+                            rgb(220, 120, 120)
+                        } else {
+                            dim_color()
+                        }),
+                    )));
+                }
+            }
+        }
+        let total = output_lines.len();
+        if total > max_preview {
+            body.push(Line::from(Span::styled(
+                format!("{cont}… {} more lines · Alt+o", total - max_preview),
+                Style::default().fg(dim_color()),
+            )));
+        }
+    }
+
+    // Guard: an empty card (no request, no status, no output) is worse than the
+    // compact row, so fall back in that rare case.
+    if body.is_empty() {
+        return render_tool_message(msg, width, diff_mode);
+    }
+
+    let border_style = Style::default().fg(tool_color());
+    let mut card = render_rounded_box(
+        &super::line_plain_text(&Line::from(header_spans.clone())),
+        body,
+        block_width,
+        border_style,
+    );
+    if card.is_empty() {
+        return render_tool_message(msg, width, diff_mode);
+    }
+    if centered {
+        left_pad_lines_for_centered_mode(&mut card, width);
+    }
+    card
+}
+
+/// Classifier outcomes that mean "we failed closed / could not classify" —
+/// distinct from an explicit model-authored `block:` decision.
+fn is_classifier_unavailable(decision: Option<&str>) -> bool {
+    decision.is_some_and(|d| d.starts_with("error:") || d.starts_with("unavailable"))
 }
 
 struct ToolOutputTokenBadge {

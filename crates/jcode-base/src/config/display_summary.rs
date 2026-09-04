@@ -63,6 +63,7 @@ impl Config {
 - Copy badge Alt label: {}
 - Show agentgrep output: {}
 - Tool call details: {}
+- Tool call layout: {}
 - Theme: {}
 - Custom colors: {}
 
@@ -203,6 +204,7 @@ impl Config {
             },
             self.display.show_agentgrep_output,
             self.display.tool_call_details,
+            self.display.tool_call_layout,
             if self.display.theme.trim().is_empty() {
                 "auto"
             } else {

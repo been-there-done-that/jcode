@@ -2897,6 +2897,48 @@ fn handle_tool_call_details_command(app: &mut App, trimmed: &str) -> bool {
     true
 }
 
+fn handle_tool_call_layout_command(app: &mut App, trimmed: &str) -> bool {
+    if trimmed != "/tool-call-layout" && !trimmed.starts_with("/tool-call-layout ") {
+        return false;
+    }
+
+    let rest = trimmed
+        .strip_prefix("/tool-call-layout")
+        .unwrap_or_default()
+        .trim();
+
+    if rest.is_empty() || matches!(rest, "show" | "status") {
+        let current = crate::config::config().display.tool_call_layout;
+        app.push_display_message(DisplayMessage::system(format!(
+            "Tool call layout is currently `{}`.\n\n`compact` is the borderless, icon-prefixed row presentation. `lifecycle` wraps each tool call in a bordered card that frames the full validate → execute → output lifecycle, with output shown as a bounded preview (press Alt+o to expand).\n\nUse /tool-call-layout compact or /tool-call-layout lifecycle to change it.",
+            current
+        )));
+        return true;
+    }
+
+    let Some(layout) = jcode_config_types::ToolCallLayout::parse(rest) else {
+        app.push_display_message(DisplayMessage::error(
+            "Usage: /tool-call-layout (show), /tool-call-layout compact, or /tool-call-layout lifecycle"
+                .to_string(),
+        ));
+        return true;
+    };
+
+    app.set_status_notice(format!("Tool call layout: {}", layout));
+    match crate::config::Config::set_tool_call_layout(layout) {
+        Ok(()) => app.push_display_message(DisplayMessage::system(format!(
+            "Saved tool call layout: `{}`. Applied to this session immediately.",
+            layout
+        ))),
+        Err(error) => app.push_display_message(DisplayMessage::error(format!(
+            "Applied tool call layout `{}` for this session, but failed to save it as the default: {}",
+            layout, error
+        ))),
+    }
+
+    true
+}
+
 fn handle_show_agentgrep_output_command(app: &mut App, trimmed: &str) -> bool {
     if trimmed != "/show-agentgrep-output" && !trimmed.starts_with("/show-agentgrep-output ") {
         return false;
@@ -3316,6 +3358,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
     }
 
     if handle_tool_call_details_command(app, trimmed) {
+        return true;
+    }
+
+    if handle_tool_call_layout_command(app, trimmed) {
         return true;
     }
 
