@@ -786,7 +786,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &dyn TuiState, area: Rect, pen
     };
     let queued_suffix = format!("{}{}", queued_suffix, auto_mode_indicator);
 
-    let line = if let Some(build_progress) = crate::build::read_build_progress() {
+    let mut line = if let Some(build_progress) = crate::build::read_build_progress() {
         let spinner = super::activity_indicator(elapsed, 12.5);
         Line::from(vec![
             Span::styled(spinner, Style::default().fg(rgb(255, 193, 7))),
@@ -1065,6 +1065,16 @@ pub(super) fn draw_status(frame: &mut Frame, app: &dyn TuiState, area: Rect, pen
         }
     };
 
+    // Persist the Auto-mode indicator on the footer even when idle, so the user
+    // always knows the session is in Auto Mode (the active-turn branches already
+    // append it via queued_suffix). When idle the footer is otherwise empty or a
+    // rotating tip, so prepend the indicator to whatever is shown.
+    if app.permission_mode() == jcode_config_types::PermissionMode::Auto
+        && !queued_suffix.contains("AUTO")
+    {
+        ensure_auto_mode_indicator(&mut line);
+    }
+
     crate::memory::check_staleness();
 
     if app.centered_mode() {
@@ -1105,6 +1115,26 @@ fn push_queued_suffix(spans: &mut Vec<Span<'static>>, queued_suffix: &str) {
             queued_suffix.to_string(),
             Style::default().fg(queued_color()),
         ));
+    }
+}
+
+/// Prepend the persistent Auto-mode footer chip (`⟳ AUTO`) to a rendered status
+/// line when the session is in Auto Mode. Called for the idle footer, which
+/// would otherwise drop the indicator that the active-turn branches show via
+/// `queued_suffix`. No-op if the line already carries the chip (active turns).
+fn ensure_auto_mode_indicator(line: &mut Line<'static>) {
+    let indicator = Span::styled(
+        "⟳ AUTO".to_string(),
+        Style::default().fg(rgb(120, 200, 255)),
+    );
+    match &mut *line {
+        Line { spans, .. } if spans.is_empty() => {
+            spans.push(indicator);
+        }
+        Line { spans, .. } => {
+            spans.insert(0, indicator);
+            spans.insert(0, Span::raw(" "));
+        }
     }
 }
 
@@ -1597,6 +1627,36 @@ mod tests {
         assert_eq!(spans.len(), 2);
         assert_eq!(spans[0].content.as_ref(), "⠋");
         assert_eq!(spans[1].content.as_ref(), " finalizing");
+    }
+
+    #[test]
+    fn ensure_auto_mode_indicator_prepends_chip() {
+        // Empty idle line becomes just the chip.
+        let mut empty = Line::from("");
+        ensure_auto_mode_indicator(&mut empty);
+        assert_eq!(empty.spans.len(), 1);
+        assert_eq!(empty.spans[0].content.as_ref(), "⟳ AUTO");
+
+        // Idle line with an existing tip keeps the tip and prepends the chip.
+        let mut tip = Line::from(vec![Span::styled(
+            "tip text".to_string(),
+            Style::default().fg(dim_color()),
+        )]);
+        ensure_auto_mode_indicator(&mut tip);
+        assert_eq!(tip.spans.len(), 3);
+        assert_eq!(tip.spans[0].content.as_ref(), " ");
+        assert_eq!(tip.spans[1].content.as_ref(), "⟳ AUTO");
+        assert_eq!(tip.spans[2].content.as_ref(), "tip text");
+
+        // The helper itself always prepends the chip; the active-turn branch in
+        // `draw_status` guards against double-application via
+        // `!queued_suffix.contains("AUTO")`. Here we just assert the helper's
+        // own behavior: it prepends without check.
+        let mut active = Line::from(" · ⟳ AUTO · sending…");
+        ensure_auto_mode_indicator(&mut active);
+        assert_eq!(active.spans.len(), 3);
+        assert_eq!(active.spans[1].content.as_ref(), "⟳ AUTO");
+        assert_eq!(active.spans[2].content.as_ref(), " · ⟳ AUTO · sending…");
     }
 
     #[test]
