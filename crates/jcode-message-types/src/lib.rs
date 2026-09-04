@@ -14,6 +14,20 @@ pub struct ToolCall {
     pub thought_signature: Option<String>,
 }
 
+/// Persisted Auto Mode classifier outcome for a single tool call, keyed by
+/// tool-call id in `Session::tool_validations`. Kept separate from `ToolCall`
+/// so marking a call AI-validated does not force-changes across every
+/// `ToolCall` construction site (there are dozens) and survives save/resume.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct StoredToolValidation {
+    /// `true` when the AI classifier allowed the call, `false` when it blocked
+    /// (or the classifier errored and we failed closed).
+    pub ai_validated: bool,
+    /// Short classifier outcome tag for UI traceability.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classifier_decision: Option<String>,
+}
+
 /// Tool definition advertised to model providers.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolDefinition {

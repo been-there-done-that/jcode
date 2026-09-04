@@ -1808,7 +1808,10 @@ pub(super) fn handle_info_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 
@@ -1829,7 +1832,10 @@ pub(super) fn handle_info_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: Some("KV cache stats".to_string()),
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
                 app.set_status_notice("Cache stats");
             }
             "1h" | "1hour" | "extended" => {
@@ -1947,7 +1953,10 @@ pub(super) fn handle_info_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 

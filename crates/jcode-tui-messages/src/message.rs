@@ -14,6 +14,12 @@ pub struct DisplayMessage {
     pub title: Option<String>,
     /// Full tool call data for role="tool" messages.
     pub tool_data: Option<ToolCall>,
+    /// Auto Mode classifier outcome for this tool call, if it ran under Auto
+    /// Mode. Persisted via `Session::tool_validations` so it is traceable and
+    /// survives save/resume; attached to the display message at render time.
+    pub ai_validated: Option<bool>,
+    /// Short classifier outcome tag for UI traceability.
+    pub classifier_decision: Option<String>,
 }
 
 impl DisplayMessage {
@@ -26,7 +32,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a system message.
@@ -38,7 +47,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a background task completion message (dedicated card display).
@@ -50,7 +62,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a display-only usage card. This is shown in the transcript UI but
@@ -63,7 +78,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: Some("Usage".to_string()),
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a display-only overnight progress card. This is shown in the
@@ -76,7 +94,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: Some("Overnight".to_string()),
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a display-only inline todo-list card. The content is either the
@@ -91,7 +112,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: Some("Todos".to_string()),
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a memory injection message (bordered box display).
@@ -103,7 +127,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: Some(title.into()),
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a swarm notification message (DM/channel/broadcast/shared context).
@@ -115,7 +142,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: Some(title.into()),
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a user message.
@@ -127,7 +157,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create an assistant message.
@@ -139,7 +172,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create an assistant message with duration.
@@ -151,7 +187,10 @@ impl DisplayMessage {
             duration_secs: Some(duration_secs),
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a tool message.
@@ -163,7 +202,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: Some(tool_data),
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a tool transcript message when the caller only has rendered text.
@@ -175,7 +217,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a display-only metadata transcript message.
@@ -187,7 +232,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a display-only spacer used by the terminal-style clear (Ctrl+L):
@@ -202,7 +250,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Create a display-only collapsing reasoning trace ("current" mode). The
@@ -216,7 +267,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Convert the shared session renderer output into the TUI transcript model.
@@ -228,6 +282,8 @@ impl DisplayMessage {
             duration_secs: None,
             title: None,
             tool_data: item.tool_data,
+            ai_validated: item.ai_validated,
+            classifier_decision: item.classifier_decision,
         }
     }
 
@@ -244,7 +300,10 @@ impl DisplayMessage {
             duration_secs: None,
             title: Some(title.into()),
             tool_data: Some(tool_data),
-        }
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }
     }
 
     /// Add tool calls to message (builder pattern).
@@ -427,6 +486,8 @@ mod tests {
                 intent: None,
                 thought_signature: None,
             }),
+            ai_validated: None,
+            classifier_decision: None,
         }
     }
 
@@ -453,6 +514,8 @@ mod tests {
             content: "done".to_string(),
             tool_calls: vec!["read".to_string()],
             tool_data: None,
+            ai_validated: None,
+            classifier_decision: None,
             stored_index: None,
         };
 

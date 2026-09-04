@@ -405,7 +405,10 @@ pub(super) fn apply_replay_event(
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
         ReplayEvent::StartProcessing => {
             *replay_turn_id += 1;
@@ -444,7 +447,10 @@ pub(super) fn apply_replay_event(
                 duration_secs: None,
                 title: title.clone(),
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
         ReplayEvent::SwarmStatus { members } => {
             app.swarm_enabled = true;

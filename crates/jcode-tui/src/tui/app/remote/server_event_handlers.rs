@@ -42,7 +42,10 @@ pub(super) fn handle_tool_done(
         duration_secs: None,
         title: None,
         tool_data: Some(tool_call.clone()),
-    });
+    
+        ai_validated: None,
+        classifier_decision: None,
+        });
     app.note_todo_gate_result(&tool_call, &output, error.is_some());
     if is_batch {
         app.batch_progress = None;
@@ -92,7 +95,10 @@ pub(super) fn handle_generated_image(
         duration_secs: None,
         title: Some("Generated image".to_string()),
         tool_data: Some(tool_call),
-    });
+    
+        ai_validated: None,
+        classifier_decision: None,
+        });
     app.status = ProcessingStatus::Streaming;
     true
 }

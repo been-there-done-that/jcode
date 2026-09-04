@@ -781,6 +781,9 @@ impl Server {
             Arc::clone(&provider) as Arc<dyn jcode_provider_core::Provider + Send + Sync>,
             Some(&crate::config::config().permissions),
         );
+        // Seed the live safety mode from the persisted default so a session that
+        // was left in Auto Mode stays in Auto Mode across restarts/reloads.
+        safety.set_mode(crate::config::config().permissions.default_mode);
         let handle = AmbientRunnerHandle::new(Arc::clone(&safety));
         crate::tool::ambient::init_safety_system(safety);
         crate::tool::ambient::init_schedule_runner(handle.clone());

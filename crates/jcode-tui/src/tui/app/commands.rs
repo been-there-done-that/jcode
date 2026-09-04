@@ -662,7 +662,10 @@ fn launch_manual_subagent(app: &mut App, spec: ManualSubagentSpec) {
         duration_secs: None,
         title: None,
         tool_data: Some(tool_call.clone()),
-    });
+    
+        ai_validated: None,
+        classifier_decision: None,
+        });
 
     let content_blocks = vec![ContentBlock::ToolUse {
         id: tool_call.id.clone(),
@@ -1997,7 +2000,10 @@ pub(super) fn handle_session_command(app: &mut App, trimmed: &str) -> bool {
                 duration_secs: None,
                 title: None,
                 tool_data: rendered.tool_data,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
 
         let _ = app.session.save();
@@ -2078,7 +2084,10 @@ pub(super) fn handle_session_command(app: &mut App, trimmed: &str) -> bool {
                         duration_secs: None,
                         title: None,
                         tool_data: rendered.tool_data,
-                    });
+                    
+                        ai_validated: None,
+                        classifier_decision: None,
+                        });
                 }
 
                 app.provider_session_id = None;
@@ -3410,7 +3419,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
                             duration_secs: None,
                             title: None,
                             tool_data: None,
-                        });
+                        
+                            ai_validated: None,
+                            classifier_decision: None,
+                            });
                     }
                     Err(reason) => {
                         app.push_display_message(DisplayMessage {
@@ -3424,7 +3436,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
                             duration_secs: None,
                             title: None,
                             tool_data: None,
-                        });
+                        
+                            ai_validated: None,
+                            classifier_decision: None,
+                            });
                     }
                 }
             }
@@ -3436,7 +3451,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
         }
         return true;
@@ -3465,7 +3483,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 
@@ -3483,7 +3504,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
             Err(e) => {
                 app.push_display_message(DisplayMessage {
@@ -3493,7 +3517,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
         }
         return true;
@@ -3512,7 +3539,10 @@ pub(super) fn handle_config_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
                 return true;
             }
 

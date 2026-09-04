@@ -48,7 +48,10 @@ fn create_scroll_test_app(
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
         DisplayMessage {
             role: "assistant".to_string(),
             content,
@@ -56,7 +59,10 @@ fn create_scroll_test_app(
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     ];
     app.bump_display_messages_version();
     app.scroll_offset = 0;
@@ -82,7 +88,10 @@ fn create_copy_test_app() -> (App, ratatui::Terminal<ratatui::backend::TestBacke
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
         DisplayMessage {
             role: "assistant".to_string(),
             content: "```rust\nfn main() {\n    println!(\"hello\");\n}\n```".to_string(),
@@ -90,7 +99,10 @@ fn create_copy_test_app() -> (App, ratatui::Terminal<ratatui::backend::TestBacke
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     ];
     app.bump_display_messages_version();
     app.scroll_offset = 0;
@@ -115,7 +127,10 @@ fn create_blockquote_copy_test_app() -> (App, ratatui::Terminal<ratatui::backend
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
         DisplayMessage {
             role: "assistant".to_string(),
             content: "As they say:\n\n> the quick brown fox\n> jumps over the lazy dog\n\nDone."
@@ -124,7 +139,10 @@ fn create_blockquote_copy_test_app() -> (App, ratatui::Terminal<ratatui::backend
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     ];
     app.bump_display_messages_version();
     app.scroll_offset = 0;
@@ -364,7 +382,10 @@ fn test_chat_native_scrollbar_hidden_when_content_fits() {
         duration_secs: None,
         title: None,
         tool_data: None,
-    }];
+    
+        ai_validated: None,
+        classifier_decision: None,
+        }];
     app.bump_display_messages_version();
     app.session.short_name = Some("test".to_string());
     app.is_processing = false;

@@ -162,7 +162,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
     }
 

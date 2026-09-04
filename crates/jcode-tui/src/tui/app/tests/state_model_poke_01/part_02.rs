@@ -184,7 +184,10 @@ fn test_pinned_content_uses_left_splitter_instead_of_rounded_box() {
                 "content": "fn demo() {}\n"
             }),
             intent: None, thought_signature: None, }),
-    }];
+    
+        ai_validated: None,
+        classifier_decision: None,
+        }];
     app.bump_display_messages_version();
 
     let backend = ratatui::backend::TestBackend::new(80, 12);
@@ -227,7 +230,10 @@ fn test_file_diff_uses_left_splitter_instead_of_rounded_box() {
                 "content": "fn demo() {\n    println!(\"hi\");\n}\n"
             }),
             intent: None, thought_signature: None, }),
-    }];
+    
+        ai_validated: None,
+        classifier_decision: None,
+        }];
     app.bump_display_messages_version();
 
     let backend = ratatui::backend::TestBackend::new(100, 18);

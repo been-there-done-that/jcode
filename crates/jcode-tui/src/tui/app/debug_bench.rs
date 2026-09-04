@@ -131,7 +131,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
             DisplayMessage {
                 role: "assistant".to_string(),
                 content: "Benchmarking side-panel input latency.".to_string(),
@@ -139,7 +142,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
         ];
         self.bump_display_messages_version();
         self.side_panel = Self::build_side_panel_latency_snapshot(diagrams, padding);
@@ -371,7 +377,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
             DisplayMessage {
                 role: "assistant".to_string(),
                 content: "Benchmarking deferred Mermaid render and image protocol reuse."
@@ -380,7 +389,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
         ];
         self.bump_display_messages_version();
         self.side_panel = Self::build_side_panel_latency_snapshot(diagrams, padding);
@@ -796,7 +808,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
             DisplayMessage {
                 role: "assistant".to_string(),
                 content: test_content,
@@ -804,7 +819,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
         ];
         self.bump_display_messages_version();
         self.follow_chat_bottom();

@@ -399,6 +399,8 @@ pub fn render_messages_and_images_with_compacted_history(
             content,
             tool_calls: Vec::new(),
             tool_data: None,
+            ai_validated: None,
+            classifier_decision: None,
             stored_index: None,
         });
     }
@@ -427,6 +429,8 @@ pub fn render_messages_and_images_with_compacted_history(
                 content: summary.to_string(),
                 tool_calls: Vec::new(),
                 tool_data: None,
+            ai_validated: None,
+            classifier_decision: None,
                 stored_index: Some(stored_index),
             });
             continue;
@@ -474,7 +478,7 @@ pub fn render_messages_and_images_with_compacted_history(
                     input,
                     thought_signature,
                 } => {
-                    let tool_call = ToolCall {
+                    let mut tool_call = ToolCall {
                         id: id.clone(),
                         name: name.clone(),
                         input: input.clone(),
@@ -501,6 +505,8 @@ pub fn render_messages_and_images_with_compacted_history(
                             content: combined,
                             tool_calls: tool_calls.clone(),
                             tool_data: None,
+            ai_validated: None,
+            classifier_decision: None,
                             stored_index: Some(stored_index),
                         });
                     }
@@ -516,11 +522,23 @@ pub fn render_messages_and_images_with_compacted_history(
                     });
                     current_tool = tool_data.clone();
 
+                    // Attach the persisted Auto Mode classifier outcome (if any)
+                    // so the transcript shows the AI-validated marker after
+                    // reload/resume.
+                    let (ai_validated, classifier_decision) =
+                        session
+                            .tool_validations
+                            .get(tool_use_id)
+                            .map(|v| (Some(v.ai_validated), v.classifier_decision.clone()))
+                            .unwrap_or((None, None));
+
                     rendered.push(RenderedMessage {
                         role: "tool".to_string(),
                         content: content.clone(),
                         tool_calls: Vec::new(),
                         tool_data,
+                        ai_validated,
+                        classifier_decision,
                         stored_index: Some(stored_index),
                     });
                 }
@@ -563,6 +581,8 @@ pub fn render_messages_and_images_with_compacted_history(
                 content: combined,
                 tool_calls,
                 tool_data: None,
+                ai_validated: None,
+                classifier_decision: None,
                 stored_index: Some(stored_index),
             });
         } else if !pending_prompt_image_indices.is_empty() {

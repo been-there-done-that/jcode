@@ -240,7 +240,10 @@ fn test_local_compacted_history_marker_scroll_expands_from_session() {
             duration_secs: None,
             title: None,
             tool_data: msg.tool_data,
-        })
+        
+            ai_validated: None,
+            classifier_decision: None,
+            })
         .collect();
     app.replace_display_messages(rendered);
     // total/remaining count *renderable* messages; the test session may carry

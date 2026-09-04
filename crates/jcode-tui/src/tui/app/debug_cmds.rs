@@ -812,7 +812,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
             format!("OK: injected {} message ({} chars)", role, content.len())
         } else if cmd == "scroll-test" || cmd.starts_with("scroll-test:") {
             let raw = cmd.strip_prefix("scroll-test:");

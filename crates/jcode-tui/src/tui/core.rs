@@ -70,7 +70,8 @@ impl DisplayMessageRoleExt for DisplayMessage {
             self.role.as_str()
         }
     }
-}
+
+    }
 
 fn is_background_task_notification_content(content: &str) -> bool {
     crate::message::parse_background_task_notification_markdown(content).is_some()

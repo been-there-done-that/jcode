@@ -74,4 +74,19 @@ impl Agent {
         }
         id
     }
+
+    /// Record the Auto Mode classifier outcome for a tool call onto the persisted
+    /// session so it is traceable and survives save/resume. The decision is read
+    /// from the registry (take_auto_decision clears it once consumed).
+    pub(crate) async fn mark_tool_call_validated(&mut self, tool_call_id: &str) {
+        if let Some(decision) = self.registry.take_auto_decision(tool_call_id).await {
+            let validation = crate::message::StoredToolValidation {
+                ai_validated: decision.validated(),
+                classifier_decision: Some(decision.tag()),
+            };
+            self.session
+                .tool_validations
+                .insert(tool_call_id.to_string(), validation);
+        }
+    }
 }

@@ -169,7 +169,10 @@ fn set_disconnect_status_message(app: &mut App, state: &mut RemoteRunState, cont
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         state.disconnect_msg_idx = Some(app.display_messages.len() - 1);
     }
 }

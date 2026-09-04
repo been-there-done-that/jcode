@@ -1034,7 +1034,10 @@ pub(in crate::tui::app) fn handle_server_event(
                         duration_secs: app.display_turn_duration_secs(),
                         title: None,
                         tool_data: None,
-                    });
+                    
+                        ai_validated: None,
+                        classifier_decision: None,
+                        });
                 }
             }
             app.clear_streaming_render_state();
@@ -1154,7 +1157,10 @@ pub(in crate::tui::app) fn handle_server_event(
                             duration_secs: duration,
                             title: None,
                             tool_data: None,
-                        });
+                        
+                            ai_validated: None,
+                            classifier_decision: None,
+                            });
                     }
                     app.push_turn_footer(duration);
                 } else if app.has_streaming_footer_stats() {
@@ -1293,7 +1299,10 @@ pub(in crate::tui::app) fn handle_server_event(
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
             app.is_processing = false;
             app.status = ProcessingStatus::Idle;
             app.stream_message_ended = false;
@@ -1868,7 +1877,10 @@ pub(in crate::tui::app) fn handle_server_event(
                                 duration_secs: None,
                                 title: None,
                                 tool_data: msg.tool_data,
-                            })
+                            
+                                ai_validated: None,
+                                classifier_decision: None,
+                                })
                             .collect();
                         app.replace_display_messages(restored_messages);
                         // A same-session forced re-apply (rewind / rewind-undo
@@ -2074,7 +2086,10 @@ pub(in crate::tui::app) fn handle_server_event(
                     duration_secs: None,
                     title: None,
                     tool_data: msg.tool_data,
-                })
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    })
                 .collect();
             app.apply_compacted_history_window(
                 restored_messages,
@@ -2440,7 +2455,10 @@ pub(in crate::tui::app) fn handle_server_event(
                         duration_secs: duration,
                         title: None,
                         tool_data: None,
-                    });
+                    
+                        ai_validated: None,
+                        classifier_decision: None,
+                        });
                 }
                 app.push_turn_footer(duration);
             }
@@ -2469,7 +2487,10 @@ pub(in crate::tui::app) fn handle_server_event(
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
             if let Some(n) = tools_skipped {
                 app.set_status_notice(format!("⚡ {} tool(s) skipped", n));

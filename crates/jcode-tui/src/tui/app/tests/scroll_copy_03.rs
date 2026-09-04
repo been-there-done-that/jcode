@@ -122,7 +122,10 @@ fn test_prompt_preview_reserves_rows_without_overwriting_visible_history() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
         DisplayMessage {
             role: "assistant".to_string(),
             content: App::build_scroll_test_content(0, 20, None),
@@ -130,7 +133,10 @@ fn test_prompt_preview_reserves_rows_without_overwriting_visible_history() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     ];
     app.bump_display_messages_version();
     app.scroll_offset = 0;
@@ -838,7 +844,10 @@ fn test_history_anchor_keeps_distance_from_bottom_after_prepend() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     );
     app.bump_display_messages_version();
     render_and_snap(&app, &mut terminal);
@@ -891,7 +900,10 @@ fn test_history_anchor_reconciles_into_scroll_offset_after_render() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     );
     app.bump_display_messages_version();
     render_and_snap(&app, &mut terminal);
@@ -957,7 +969,10 @@ fn compacted_history_app_with_remaining(turns: usize) -> App {
             duration_secs: None,
             title: None,
             tool_data: msg.tool_data,
-        })
+        
+            ai_validated: None,
+            classifier_decision: None,
+            })
         .collect();
     app.replace_display_messages(rendered);
     app

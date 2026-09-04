@@ -4359,6 +4359,19 @@ pub(crate) fn render_tool_message(
         ));
         tool_line.push(Span::styled(")", Style::default().fg(dim_color())));
     }
+    if let Some(validated) = msg.ai_validated {
+        let (symbol, color) = if validated {
+            ("\u{1F916}\u{2713}", Style::default().fg(rgb(120, 200, 120)))
+        } else {
+            ("\u{1F916}\u{2717}", Style::default().fg(rgb(220, 120, 120)))
+        };
+        let mut label = symbol.to_string();
+        if let Some(ref decision) = msg.classifier_decision {
+            label.push_str(&format!(" {}", decision));
+        }
+        tool_line.push(Span::styled(" · ", Style::default().fg(dim_color())));
+        tool_line.push(Span::styled(label, color));
+    }
     let token_suffix = Line::from(vec![
         Span::styled(" · ", Style::default().fg(dim_color())),
         Span::styled(token_badge.label, Style::default().fg(token_badge.color)),

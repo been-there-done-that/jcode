@@ -350,7 +350,10 @@ impl App {
                         duration_secs: None,
                         title: None,
                         tool_data: None,
-                    });
+                    
+                        ai_validated: None,
+                        classifier_decision: None,
+                        });
                 } else {
                     restored_model = true;
                 }
@@ -397,7 +400,10 @@ impl App {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
 
             // Queue an automatic message to notify the AI that reload completed
@@ -467,7 +473,10 @@ impl App {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
         }
     }
@@ -661,7 +670,10 @@ pub(super) fn handle_dev_command(app: &mut App, trimmed: &str) -> bool {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
             return true;
         }
         app.push_display_message(DisplayMessage {
@@ -671,7 +683,10 @@ pub(super) fn handle_dev_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         app.session.provider_session_id = app.provider_session_id.clone();
         app.session
             .set_status(crate::session::SessionStatus::Reloaded);
@@ -690,7 +705,10 @@ pub(super) fn handle_dev_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         app.session.provider_session_id = app.provider_session_id.clone();
         app.session
             .set_status(crate::session::SessionStatus::Reloaded);

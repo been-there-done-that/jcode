@@ -3746,7 +3746,10 @@ impl App {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
                 if let Some(prompt) = trailing_prompt {
                     input = prompt;
                 } else {
@@ -3777,7 +3780,10 @@ impl App {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
                 return;
             }
         }
@@ -3804,7 +3810,10 @@ impl App {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         // Send expanded content (with actual pasted text) to model
         let images = std::mem::take(&mut self.pending_images);
         if !images.is_empty() {

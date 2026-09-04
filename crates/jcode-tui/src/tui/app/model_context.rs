@@ -1483,7 +1483,10 @@ pub(super) fn handle_model_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
                 app.set_status_notice(format!("Model → {}", model_name));
             }
             Err(e) => {

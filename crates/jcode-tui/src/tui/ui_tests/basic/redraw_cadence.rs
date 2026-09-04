@@ -23,7 +23,10 @@ fn static_chrome_state(notice: Option<&str>) -> TestState {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }],
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }],
         status_notice: notice.map(str::to_string),
         status: ProcessingStatus::Idle,
         time_since_activity: Some(Duration::from_secs(1)),
@@ -252,7 +255,10 @@ fn just_touched_notice_screen() -> TestState {
             duration_secs: None,
             title: None,
             tool_data: None,
-        }],
+        
+            ai_validated: None,
+            classifier_decision: None,
+            }],
         status: ProcessingStatus::Idle,
         // What `time_since_activity()` actually reports for a non-empty
         // transcript that has never streamed: already past deep idle.

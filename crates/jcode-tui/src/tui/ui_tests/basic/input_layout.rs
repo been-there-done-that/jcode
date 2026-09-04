@@ -162,7 +162,10 @@ fn test_wrapped_input_line_count_respects_two_digit_prompt_width() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
     }
 
     // Old layout math effectively used width 11 here (14 total - hardcoded prompt width 3),

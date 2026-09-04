@@ -357,7 +357,10 @@ impl App {
                                                     duration_secs: self.display_turn_duration_secs(),
                                                     title: None,
                                                     tool_data: None,
-                                                });
+                                                
+                                                    ai_validated: None,
+                                                    classifier_decision: None,
+                                                    });
                                                 }
                                             }
                                         }
@@ -421,7 +424,10 @@ impl App {
                                                     duration_secs: None,
                                                     title: None,
                                                     tool_data: None,
-                                                });
+                                                
+                                                    ai_validated: None,
+                                                    classifier_decision: None,
+                                                    });
                                                 }
                                             }
                                         }
@@ -434,7 +440,10 @@ impl App {
                                             duration_secs: None,
                                             title: None,
                                             tool_data: None,
-                                        });
+                                        
+                                            ai_validated: None,
+                                            classifier_decision: None,
+                                            });
                                         // Clear streaming state and continue with new turn
                                         self.clear_streaming_render_state();
                                         self.streaming_tool_calls.clear();
@@ -593,7 +602,10 @@ impl App {
                                                 duration_secs: None,
                                                 title: None,
                                                 tool_data: Some(tool.clone()),
-                                            });
+                                            
+                                                ai_validated: None,
+                                                classifier_decision: None,
+                                                });
 
                                             tool_calls.push(tool);
                                             current_tool_input.clear();
@@ -936,7 +948,10 @@ impl App {
                                             duration_secs: None,
                                             title: Some("Generated image".to_string()),
                                             tool_data: Some(tool_call),
-                                        });
+                                        
+                                            ai_validated: None,
+                                            classifier_decision: None,
+                                            });
                                         if let Some(image) = crate::message::generated_image_rendered_image(
                                             &id,
                                             &path,
@@ -1136,7 +1151,10 @@ impl App {
                         duration_secs: duration,
                         title: None,
                         tool_data: None,
-                    });
+                    
+                        ai_validated: None,
+                        classifier_decision: None,
+                        });
                     self.push_turn_footer(duration);
                 }
             } else {
@@ -1153,7 +1171,10 @@ impl App {
                             duration_secs: duration,
                             title: None,
                             tool_data: None,
-                        });
+                        
+                            ai_validated: None,
+                            classifier_decision: None,
+                            });
                     }
                 }
                 if self.has_streaming_footer_stats() {
@@ -1322,7 +1343,10 @@ impl App {
                                                     duration_secs: self.display_turn_duration_secs(),
                                                     title: None,
                                                     tool_data: None,
-                                                });
+                                                
+                                                    ai_validated: None,
+                                                    classifier_decision: None,
+                                                    });
                                                 }
                                             }
                                             self.clear_streaming_render_state();

@@ -67,6 +67,7 @@ fn is_mcp_tool_name(name: &str) -> bool {
     name == "mcp" || name.starts_with("mcp__") || is_fixed_mcp_tool(name)
 }
 use std::sync::{LazyLock, RwLock as StdRwLock};
+use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 
 pub(crate) use jcode_tool_core::intent_schema_property;
@@ -171,6 +172,36 @@ pub struct Registry {
     /// refreshes this before each provider round so tool executions evaluate
     /// against the actual user request and conversation, not an empty context.
     turn_context: Arc<RwLock<Option<ClassifierTurnContext>>>,
+    /// After `execute` runs the Auto Mode gate, the decision is recorded here
+    /// keyed by tool-call id so the agent loop can stamp it onto the persisted
+    /// `ToolCall` (ai_validated / classifier_decision) for traceability that
+    /// survives save/resume.
+    auto_decisions: Arc<Mutex<HashMap<String, AutoModeDecision>>>,
+}
+
+/// Outcome of the Auto Mode classifier gate for a single tool call.
+#[derive(Debug, Clone)]
+pub enum AutoModeDecision {
+    /// Classifier allowed the call (or Auto Mode was not active / tool is
+    /// read-only, in which case the gate is a no-op). `validated == true`.
+    Allow { tag: String },
+    /// Classifier blocked the call, or errored and we failed closed.
+    /// `validated == false`.
+    Block { reason: String },
+}
+
+impl AutoModeDecision {
+    /// Whether the call was AI-validated (allowed) by the gate.
+    pub fn validated(&self) -> bool {
+        matches!(self, AutoModeDecision::Allow { .. })
+    }
+    /// Short tag for UI traceability.
+    pub fn tag(&self) -> String {
+        match self {
+            AutoModeDecision::Allow { tag } => tag.clone(),
+            AutoModeDecision::Block { reason } => reason.clone(),
+        }
+    }
 }
 
 impl Clone for Registry {
@@ -182,6 +213,7 @@ impl Clone for Registry {
             // subagents from corrupting each other's message history
             compaction: Arc::new(RwLock::new(CompactionManager::new())),
             turn_context: Arc::new(RwLock::new(None)),
+            auto_decisions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -219,6 +251,7 @@ impl Registry {
             skills: Arc::new(RwLock::new(SkillRegistry::default())),
             compaction: Arc::new(RwLock::new(CompactionManager::new())),
             turn_context: Arc::new(RwLock::new(None)),
+            auto_decisions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -356,6 +389,7 @@ impl Registry {
             skills: skills.clone(),
             compaction: compaction.clone(),
             turn_context: Arc::new(RwLock::new(None)),
+            auto_decisions: Arc::new(Mutex::new(HashMap::new())),
         };
         let registry_struct_ms = registry_struct_start.elapsed().as_millis();
 
@@ -692,6 +726,16 @@ impl Registry {
         self.turn_context.read().await.clone()
     }
 
+    /// Retrieve and clear the Auto Mode gate decision recorded for a tool call id
+    /// during the most recent `execute`. The agent loop calls this right after a
+    /// tool runs so it can stamp the persisted `ToolCall` (ai_validated /
+    /// classifier_decision) for traceability. Returns `None` when no decision was
+    /// recorded (e.g. Auto Mode inactive or a read-only tool).
+    pub async fn take_auto_decision(&self, tool_call_id: &str) -> Option<AutoModeDecision> {
+        let mut map = self.auto_decisions.lock().await;
+        map.remove(tool_call_id)
+    }
+
     /// Tools that mutate the world and therefore must pass the Auto Mode
     /// classifier before running. Read-only / informational tools are excluded
     /// so the auto loop can keep inspecting state without a round-trip.
@@ -740,7 +784,7 @@ impl Registry {
         let turn_context = self.take_turn_context().await;
         let config = &crate::config::config().permissions;
 
-        match safety
+        let decision = match safety
             .classify_ai(
                 turn_context
                     .as_ref()
@@ -759,20 +803,31 @@ impl Registry {
             .await
         {
             Ok(result) => match result.decision {
-                Decision::Allow => None,
-                Decision::Block { detail, .. } => Some(format!(
-                    "Auto Mode blocked '{}': {}",
-                    tool_name, detail
-                )),
+                Decision::Allow => AutoModeDecision::Allow {
+                    tag: "allow".to_string(),
+                },
+                Decision::Block { detail, .. } => AutoModeDecision::Block {
+                    reason: format!("block: {}", detail),
+                },
             },
             // Fail closed: a classifier error must not let a destructive action
             // slip through. The only safe fallback is to deny and let the user
             // approve explicitly.
-            Err(e) => Some(format!(
-                "Auto Mode could not evaluate '{}' (classifier error: {}). \
-                 Action denied for safety; switch to Manual mode or approve explicitly.",
-                tool_name, e
-            )),
+            Err(e) => AutoModeDecision::Block {
+                reason: format!("error: classifier unavailable ({})", e),
+            },
+        };
+
+        // Record the decision so the agent loop can stamp it onto the persisted
+        // ToolCall (ai_validated / classifier_decision) for traceability.
+        let mut map = self.auto_decisions.lock().await;
+        map.insert(ctx.tool_call_id.clone(), decision.clone());
+
+        match decision {
+            AutoModeDecision::Allow { .. } => None,
+            AutoModeDecision::Block { reason } => {
+                Some(format!("Auto Mode blocked '{}': {}", tool_name, reason))
+            }
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::id::{extract_session_name, new_id, new_memorable_session_id_avoiding};
-use crate::message::{ContentBlock, Message, Role};
+use crate::message::{ContentBlock, Message, Role, StoredToolValidation};
 pub use crate::storage::{
     SessionCounts, SessionPresence, active_session_ids, find_active_session_id_by_pid,
     mark_streaming, session_counts, session_presence, unmark_streaming, user_session_counts,
@@ -31,7 +31,7 @@ impl StreamingGuard {
 }
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 mod crash;
 mod journal;
@@ -183,6 +183,10 @@ pub struct Session {
     /// Non-conversation UI/state events persisted for higher-fidelity replay.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replay_events: Vec<StoredReplayEvent>,
+    /// Auto Mode classifier outcomes keyed by tool-call id. Persisted so each
+    /// tool call's AI-validated status is traceable and survives save/resume.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub tool_validations: HashMap<String, StoredToolValidation>,
     #[serde(skip)]
     persist_state: SessionPersistState,
     #[serde(skip)]
@@ -760,6 +764,7 @@ impl Session {
             env_snapshots: Vec::new(),
             memory_injections: Vec::new(),
             replay_events: Vec::new(),
+            tool_validations: HashMap::new(),
             persist_state: SessionPersistState::default(),
             provider_messages_cache: Vec::new(),
             provider_message_prefix_hashes_cache: Vec::new(),
@@ -814,6 +819,7 @@ impl Session {
             env_snapshots: Vec::new(),
             memory_injections: Vec::new(),
             replay_events: Vec::new(),
+            tool_validations: HashMap::new(),
             persist_state: SessionPersistState::default(),
             provider_messages_cache: Vec::new(),
             provider_message_prefix_hashes_cache: Vec::new(),

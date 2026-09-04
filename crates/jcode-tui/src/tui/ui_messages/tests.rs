@@ -924,7 +924,10 @@ fn render_todo_tool_result_uses_borderless_card_with_goal_scores() {
             intent: Some("Track todo card work".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let plain = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -1011,7 +1014,10 @@ fn render_todo_quality_gate_retry_shows_only_changed_goal_fields() {
             intent: Some("Refine the todo feedback loop".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let plain = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -1128,7 +1134,10 @@ fn render_todo_plan_update_card_shows_only_changed_intent_fields() {
             intent: Some("Reassess the user's intent".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let plain = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -1227,7 +1236,10 @@ fn unbiased_visual_prompt_retry_renders_complete_feedback_change() {
             duration_secs: None,
             title: Some("1 todos".to_string()),
             tool_data,
-        };
+        
+            ai_validated: None,
+            classifier_decision: None,
+            };
         render_tool_message(&msg, 72, crate::config::DiffDisplayMode::Off)
             .iter()
             .map(extract_line_text)
@@ -1351,7 +1363,10 @@ fn visually_appealing_prompt_batched_retry_renders_complete_todo_card() {
             ),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let rendered = render_tool_message(&msg, 84, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -1422,7 +1437,10 @@ fn render_ownership_gated_todo_result_keeps_the_full_card() {
             intent: Some("Complete the full user outcome".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let plain = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -1505,7 +1523,10 @@ fn render_tool_message_uses_scheduled_card() {
                 "target": "resume"
             }),
             intent: None, thought_signature: None, }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off);
     let plain = lines
@@ -1622,7 +1643,10 @@ fn render_assistant_message_truncates_tool_calls_to_single_line() {
         duration_secs: None,
         title: None,
         tool_data: None,
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_assistant_message(&msg, 20, crate::config::DiffDisplayMode::Off);
     assert_eq!(extract_line_text(&lines[1]), "");
@@ -1668,7 +1692,10 @@ fn render_assistant_message_centers_single_line_tool_summary() {
         duration_secs: None,
         title: None,
         tool_data: None,
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_assistant_message(&msg, 28, crate::config::DiffDisplayMode::Off);
     assert_eq!(extract_line_text(&lines[1]), "");
@@ -1714,7 +1741,10 @@ fn render_assistant_message_without_body_does_not_add_extra_blank_line_before_to
         duration_secs: None,
         title: None,
         tool_data: None,
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_assistant_message(&msg, 28, crate::config::DiffDisplayMode::Off);
     let rendered: Vec<String> = lines.iter().map(extract_line_text).collect();
@@ -1962,7 +1992,10 @@ fn render_tool_message_prefers_subagent_title_with_model() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 80, crate::config::DiffDisplayMode::Off);
     let rendered: String = lines[0]
@@ -1993,7 +2026,10 @@ fn render_tool_message_shows_intent_and_technical_preview_on_one_line() {
             intent: Some("Verify compact progress card".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered = extract_line_text(&lines[0]);
@@ -2026,7 +2062,10 @@ fn render_tool_message_hides_technical_preview_by_default() {
             intent: Some("Verify compact progress card".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered = extract_line_text(&lines[0]);
@@ -2062,7 +2101,10 @@ fn render_tool_message_keeps_error_summary_when_details_hidden() {
             intent: Some("Run the test suite".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered = extract_line_text(&lines[0]);
@@ -2088,7 +2130,10 @@ fn render_tool_message_shows_token_badge() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let badge_span = lines[0]
@@ -2117,7 +2162,10 @@ fn render_tool_message_hides_bash_output() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered = lines.iter().map(extract_line_text).collect::<Vec<_>>();
@@ -2142,7 +2190,10 @@ fn render_tool_message_shows_bash_output_when_enabled() {
             intent: Some("Print output".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let rendered = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -2170,6 +2221,8 @@ fn gmail_draft_message(content: &str, input: serde_json::Value) -> DisplayMessag
             intent: None,
             thought_signature: None,
         }),
+        ai_validated: None,
+        classifier_decision: None,
     }
 }
 
@@ -2325,7 +2378,10 @@ fn render_batch_tool_message_shows_nested_gmail_draft_card() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off);
     let plain = lines
@@ -2372,7 +2428,10 @@ fn render_batch_tool_message_shows_flat_and_nested_subcall_intents() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let plain = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -2407,6 +2466,8 @@ fn discovery_message(content: &str, input: serde_json::Value) -> DisplayMessage 
             intent: None,
             thought_signature: None,
         }),
+        ai_validated: None,
+        classifier_decision: None,
     }
 }
 
@@ -2495,7 +2556,10 @@ fn batched_discovery_renders_without_disclosure_notice() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off);
     let plain = lines
@@ -2678,7 +2742,10 @@ fn render_tool_message_colors_high_token_badge() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let badge_span = lines[0]
@@ -2709,7 +2776,10 @@ fn render_tool_message_shows_inline_diff_for_pascal_case_multiedit() {
                 ]
             }),
             intent: None, thought_signature: None, }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Inline);
     let plain = lines
@@ -2741,7 +2811,10 @@ fn render_tool_message_labels_single_file_apply_patch_diff() {
             intent: Some("Update example behavior".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Inline);
     let plain = lines
@@ -2773,7 +2846,10 @@ fn render_tool_message_preserves_multi_file_apply_patch_boundaries() {
             intent: Some("Update both examples".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Inline);
     let plain = lines
@@ -2813,7 +2889,10 @@ fn render_tool_message_shows_numbered_write_result_diff_after_input_compaction()
             intent: Some("Create an honest data-driven benchmark comparison page".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Inline);
     let plain = lines
@@ -2856,7 +2935,10 @@ fn render_tool_message_never_draws_an_empty_edit_diff_frame() {
                 intent: None,
                 thought_signature: None,
             }),
-        };
+        
+            ai_validated: None,
+            classifier_decision: None,
+            };
 
         let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Inline);
         let plain = lines
@@ -2887,7 +2969,10 @@ fn render_tool_message_marks_failed_apply_patch_without_empty_diff() {
             intent: Some("Replace the benchmark placeholder".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Inline);
     let plain = lines
@@ -2929,7 +3014,10 @@ fn render_tool_message_inline_mode_truncates_large_diffs() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 40, crate::config::DiffDisplayMode::Inline);
     let plain = lines
@@ -2973,7 +3061,10 @@ fn render_tool_message_full_inline_mode_shows_full_diff() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 40, crate::config::DiffDisplayMode::FullInline);
     let plain = lines
@@ -3015,7 +3106,10 @@ fn render_tool_message_memory_recall_centered_mode_left_aligns_with_padding() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered: Vec<String> = lines
@@ -3069,7 +3163,10 @@ fn render_tool_message_memory_store_centered_mode_left_aligns_with_padding() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered: Vec<String> = lines
@@ -3114,7 +3211,10 @@ fn render_tool_message_shows_swarm_spawn_prompt_summary() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered: String = lines[0]
@@ -3154,7 +3254,10 @@ fn render_tool_message_batch_subcall_shows_swarm_dm_details() {
             intent: None,
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let rendered = lines
@@ -3310,7 +3413,10 @@ fn render_empty_todo_tool_result_collapses_to_compact_line() {
             intent: Some("Read the todo list".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
 
     let plain = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off)
         .iter()
@@ -3340,7 +3446,10 @@ fn acceptance_gh_workflow_scenario_renders_icons_full_command_and_tail() {
             intent: Some("check CI status".to_string()),
             thought_signature: None,
         }),
-    };
+    
+        ai_validated: None,
+        classifier_decision: None,
+        };
     let lines = render_tool_message(&msg, 120, crate::config::DiffDisplayMode::Off);
     let plain = lines
         .iter()
@@ -3387,6 +3496,8 @@ fn acceptance_failure_shows_deep_red_tail_even_with_previews_off() {
             intent: None,
             thought_signature: None,
         }),
+        ai_validated: None,
+        classifier_decision: None,
     };
     let lines = render_tool_message(&msg, 100, crate::config::DiffDisplayMode::Off);
     let plain = lines

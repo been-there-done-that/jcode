@@ -164,6 +164,18 @@ impl Config {
         Self::set_default_model(model, cfg.provider.default_provider.as_deref())
     }
 
+    /// Persist the default permission mode (Manual/Auto) to the config file.
+    /// Reloads, patches, and saves so other fields are preserved. This is what
+    /// makes `/permission auto|manual` survive a restart/reload: the next session
+    /// seeds its in-memory mode from `permissions.default_mode`.
+    pub fn set_permission_mode(mode: PermissionMode) -> anyhow::Result<()> {
+        let mut cfg = Self::load_for_update()?;
+        cfg.permissions.default_mode = mode;
+        cfg.save()?;
+        crate::logging::info(&format!("Saved permission default_mode to config: {:?}", mode));
+        Ok(())
+    }
+
     /// Update the persisted OpenAI reasoning effort preference.
     pub fn set_openai_reasoning_effort(value: Option<&str>) -> anyhow::Result<()> {
         let mut cfg = Self::load_for_update()?;

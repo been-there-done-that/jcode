@@ -1,0 +1,2 @@
+[2026-08-26 00:02:43.326] [INFO] jcode starting
+[2026-08-26 00:02:43.327] [INFO] perf: tier=full terminal=warpterminal ssh=false wsl=false glyph_safe=false load=2.7 cpus=16 mem_avail=9790MB mem_total=14890MB

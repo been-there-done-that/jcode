@@ -789,7 +789,10 @@ impl App {
                 duration_secs: None,
                 title: None,
                 tool_data: msg.tool_data,
-            })
+            
+                ai_validated: None,
+                classifier_decision: None,
+                })
             .collect();
         self.apply_compacted_history_window(
             display_messages,

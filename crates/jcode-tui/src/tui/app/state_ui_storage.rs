@@ -509,6 +509,8 @@ mod tests {
                 intent: crate::message::ToolCall::intent_from_input(&input),
                 thought_signature: None,
             }),
+            ai_validated: None,
+            classifier_decision: None,
         }
     }
 

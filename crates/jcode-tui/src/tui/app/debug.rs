@@ -588,7 +588,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         app.set_status_notice("Visual debug: ON");
         return true;
     }
@@ -603,7 +606,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         app.set_status_notice("Visual debug: OFF");
         return true;
     }
@@ -627,7 +633,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
             Err(e) => {
                 app.push_display_message(DisplayMessage {
@@ -637,7 +646,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
                     duration_secs: None,
                     title: None,
                     tool_data: None,
-                });
+                
+                    ai_validated: None,
+                    classifier_decision: None,
+                    });
             }
         }
         return true;
@@ -667,7 +679,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 
@@ -682,7 +697,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 
@@ -703,7 +721,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
         return true;
     }
@@ -722,7 +743,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 
@@ -768,7 +792,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 
@@ -782,7 +809,10 @@ pub(super) fn handle_debug_command(app: &mut App, trimmed: &str) -> bool {
             duration_secs: None,
             title: None,
             tool_data: None,
-        });
+        
+            ai_validated: None,
+            classifier_decision: None,
+            });
         return true;
     }
 

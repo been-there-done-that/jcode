@@ -194,7 +194,10 @@ impl App {
                 duration_secs: None,
                 title: Some("Connection".to_string()),
                 tool_data: None,
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
         true
     }
@@ -272,7 +275,10 @@ impl App {
                         duration_secs: None,
                         title: Some("Connection".to_string()),
                         tool_data: None,
-                    });
+                    
+                        ai_validated: None,
+                        classifier_decision: None,
+                        });
                 }
                 true
             }

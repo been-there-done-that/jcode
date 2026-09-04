@@ -844,6 +844,7 @@ impl Agent {
                             .registry
                             .execute(&tool_name, ToolCall::normalize_input_to_object(input), ctx)
                             .await;
+                        self.mark_tool_call_validated(&request_id).await;
                         if tool_result.is_err() {
                             crate::telemetry::record_tool_failure();
                         }
@@ -1436,6 +1437,9 @@ impl Agent {
                         tc.name,
                         tool_elapsed.as_secs_f64()
                     ));
+                    // Persist the Auto Mode classifier outcome for this call
+                    // (no-op unless the gate recorded a decision; consumed-and-cleared).
+                    self.mark_tool_call_validated(&tc.id).await;
                     if inline_output_tap {
                         // Update the tool marker in place with duration/error.
                         self.inline_tail

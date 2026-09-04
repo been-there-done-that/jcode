@@ -21,3 +21,6 @@ captures/
 /*.avif
 /*.mp4
 /*.png
+
+# Build artifacts (binaries, tarballs) - never commit
+/dist/

@@ -1730,7 +1730,10 @@ impl SessionPicker {
                 duration_secs: None,
                 title: None,
                 tool_data: msg.tool_data.clone(),
-            };
+            
+                ai_validated: None,
+                classifier_decision: None,
+                };
 
             match msg.role.as_str() {
                 "user" => {
@@ -1819,7 +1822,10 @@ impl SessionPicker {
                             duration_secs: None,
                             title: None,
                             tool_data: msg.tool_data.clone(),
-                        },
+                        
+                            ai_validated: None,
+                            classifier_decision: None,
+                            },
                         assistant_width,
                         crate::config::DiffDisplayMode::Off,
                     );
@@ -1837,7 +1843,10 @@ impl SessionPicker {
                             duration_secs: None,
                             title: None,
                             tool_data: msg.tool_data.clone(),
-                        },
+                        
+                            ai_validated: None,
+                            classifier_decision: None,
+                            },
                         assistant_width,
                         crate::config::DiffDisplayMode::Off,
                     );

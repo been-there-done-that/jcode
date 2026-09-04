@@ -573,7 +573,10 @@ fn test_light_theme_adapted_frame_has_readable_contrast() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
         DisplayMessage {
             role: "assistant".into(),
             content: "hi! *bold* and `code`".into(),
@@ -581,7 +584,10 @@ fn test_light_theme_adapted_frame_has_readable_contrast() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     ];
     let state = TestState {
         display_messages: messages,
@@ -644,7 +650,10 @@ fn test_configured_palette_recolors_a_real_rendered_frame() {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
             DisplayMessage {
                 role: "assistant".into(),
                 content: "hi! *bold* and `code`".into(),
@@ -652,7 +661,10 @@ fn test_configured_palette_recolors_a_real_rendered_frame() {
                 duration_secs: None,
                 title: None,
                 tool_data: None,
-            },
+            
+                ai_validated: None,
+                classifier_decision: None,
+                },
         ];
         let state = TestState {
             display_messages: messages,

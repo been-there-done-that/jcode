@@ -351,7 +351,10 @@ fn pinned_todo_band_renders_below_sticky_prompt_without_separator() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
         DisplayMessage {
             role: "assistant".to_string(),
             content: App::build_scroll_test_content(0, 40, None),
@@ -359,7 +362,10 @@ fn pinned_todo_band_renders_below_sticky_prompt_without_separator() {
             duration_secs: None,
             title: None,
             tool_data: None,
-        },
+        
+            ai_validated: None,
+            classifier_decision: None,
+            },
     ];
     app.bump_display_messages_version();
     app.scroll_offset = 0;

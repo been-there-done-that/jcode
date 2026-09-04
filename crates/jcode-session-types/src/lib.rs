@@ -52,6 +52,14 @@ pub struct RenderedMessage {
     pub content: String,
     pub tool_calls: Vec<String>,
     pub tool_data: Option<ToolCall>,
+    /// Auto Mode classifier outcome for this tool call, if it ran under Auto
+    /// Mode. Populated from `Session::tool_validations` during rendering so the
+    /// marker is traceable and survives save/resume.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ai_validated: Option<bool>,
+    /// Short classifier outcome tag for UI traceability.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub classifier_decision: Option<String>,
     /// Index of the stored session message this rendered message came from.
     /// `None` for synthetic UI-only messages (e.g. the compacted-history
     /// notice). Used to map user-facing rewind targets back to the stored

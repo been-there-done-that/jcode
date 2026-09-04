@@ -80,7 +80,10 @@ fn test_replace_latest_tool_display_message_updates_latest_match_and_bumps_versi
         duration_secs: None,
         title: Some("old title".to_string()),
         tool_data: Some(tool_call.clone()),
-    });
+    
+        ai_validated: None,
+        classifier_decision: None,
+        });
     app.push_display_message(DisplayMessage {
         role: "tool".to_string(),
         content: "placeholder 2".to_string(),
@@ -88,7 +91,10 @@ fn test_replace_latest_tool_display_message_updates_latest_match_and_bumps_versi
         duration_secs: None,
         title: None,
         tool_data: Some(tool_call),
-    });
+    
+        ai_validated: None,
+        classifier_decision: None,
+        });
     let before = app.display_messages_version;
 
     assert!(app.replace_latest_tool_display_message(
@@ -133,7 +139,10 @@ fn test_replace_latest_tool_display_message_removes_background_lifecycle_card() 
             intent: None,
             thought_signature: None,
         }),
-    });
+    
+        ai_validated: None,
+        classifier_decision: None,
+        });
     let before = app.display_messages_version;
 
     assert!(app.replace_latest_tool_display_message(
@@ -223,7 +232,10 @@ fn test_incremental_display_message_counts_match_full_recompute() {
                     intent: None,
                     thought_signature: None,
                 }),
-            });
+            
+                ai_validated: None,
+                classifier_decision: None,
+                });
         }
     }
 
